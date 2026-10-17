@@ -53,15 +53,36 @@ tr.sel{background:#edf5ff !important}
 .notch{width:110px;height:22px;background:#161616;border-radius:0 0 14px 14px;margin:-18px auto 14px}
 .bank{font-weight:600;font-size:16px;margin-bottom:2px}
 .balance{color:var(--muted);font-size:12px;margin-bottom:14px}
-.warn{background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);animation:pop .35s ease}
+/* phone screens: same design and wording as the StudentShield /demo phone */
 @keyframes pop{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
-.warn .icon{width:36px;height:36px;border-radius:50%;background:var(--soft-amber);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:8px}
-.warn h3{margin:0 0 6px;font-size:16px}
-.warn .amt{font-size:22px;font-weight:600;margin:6px 0}
-.warn p{font-size:13px;color:#393939;margin:6px 0}
-.warn button{width:100%;margin-top:8px;padding:10px;border-radius:10px}
-.b1{background:var(--blue);color:#fff}
-.b2{background:#e8e8ed;color:var(--ink)}
+.warn{animation:pop .35s ease;color:#161b29}
+.warn .shield{width:44px;height:44px;border-radius:12px;background:#fff1c7;display:grid;place-items:center;font-size:22px;margin-bottom:10px}
+.warn h3{margin:0 0 8px;font-size:18px;line-height:1.25}
+.warn p{font-size:13px;color:#3d4560;line-height:1.45;margin:0 0 10px}
+.facts{background:#fff;border:1px solid #e3e6ef;border-radius:10px;padding:8px 10px;margin-bottom:12px;font-size:12.5px}
+.facts div{display:flex;justify-content:space-between;padding:2px 0}
+.facts b{text-align:right}
+.acts{display:grid;gap:7px}
+.acts button{width:100%;padding:10px;border-radius:10px;font-weight:600;font-size:13px;border:1px solid #c6cbd8;background:#fff;color:#161b29;cursor:pointer}
+.acts button.main{background:#0f62fe;border-color:#0f62fe;color:#fff}
+.acts button.cur{background:#0f62fe;border-color:#0f62fe;color:#fff}
+.help{font-size:11px;color:#6f7687;text-align:center;margin-top:10px}
+.done{text-align:center;color:#161b29;animation:pop .35s ease}
+.done .tick{width:54px;height:54px;border-radius:50%;background:#defbe6;color:#198038;display:grid;place-items:center;margin:4px auto 12px;font-size:26px}
+.done .tick.info{background:#e5f0ff;color:#0f62fe;font-family:Georgia,serif;font-style:italic;font-weight:700}
+.done h3{font-size:17px;margin:0 0 8px}
+.done > p{font-size:13px;color:#3d4560;line-height:1.45;margin:0 0 12px}
+.row2{display:flex;justify-content:space-between;gap:8px;text-align:left;padding:6px 10px;background:#fff;border:1px solid #e3e6ef;border-radius:8px;margin-bottom:6px;font-size:12.5px}
+.row2 span{white-space:nowrap}
+.row2 b{text-align:right}
+td.mono{white-space:nowrap}
+.ask{text-align:left;background:#fff4d6;border:1px solid #f1c21b;border-radius:10px;padding:9px 10px;margin-top:8px;font-size:12px}
+.ask ul{list-style:none;margin:4px 0 6px;padding:0;font-family:"IBM Plex Mono",monospace;color:#a2191f}
+.ask p{font-weight:600;margin:4px 0 6px}
+.ask .acts button{padding:7px;font-size:12px}
+.note{font-size:11.5px;color:#525a6e}
+.who{font-size:11px;color:var(--muted);margin-bottom:8px}
+.ans{display:block;margin-top:4px;font-size:10.5px;color:var(--muted)}
 .ok{text-align:center;color:var(--muted);padding-top:120px}
 .ok .tick{font-size:40px;color:var(--green)}
 .foot{font-size:11px;color:var(--muted);text-align:center;margin-top:10px}
@@ -98,7 +119,7 @@ tr.sel{background:#edf5ff !important}
     <div class="sub">Newest first. Click an alert for the explanation. "Ground truth" comes from the synthetic dataset and is shown for the demo only.</div>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Time</th><th>Receiving account</th><th>Amount</th><th>Method</th><th>Risk</th><th>Level</th><th>Why it was flagged</th><th>Ground truth</th></tr></thead>
+        <thead><tr><th>Time</th><th>Receiving account</th><th>Amount</th><th>Method</th><th>How rare</th><th>Level</th><th>Why it was flagged</th><th>Ground truth</th></tr></thead>
         <tbody id="rows"><tr><td colspan="8" class="empty">No alerts yet. Press "Start live demo".</td></tr></tbody>
       </table>
     </div>
@@ -125,6 +146,9 @@ tr.sel{background:#edf5ff !important}
 <script>
 const $ = id => document.getElementById(id);
 const fmt = n => Number(n).toLocaleString('en-GB', {maximumFractionDigits: 0});
+// How unusual a score is vs all validation payments, as "1 in N" (replaces "top 0.01%", which was a floor)
+const rarity = r => { const share = 1 - Number(r); if (share <= 0) return 'rarest seen';
+  let n = 1 / share; n = n >= 100 ? Number(n.toPrecision(2)) : Math.round(n); return `1 in ${fmt(n)}`; };
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let alertsById = {}, selected = null, lastStudentId = null;
 
@@ -136,7 +160,7 @@ async function getJSON(url, opts) {
 async function refresh() {
   try {
     const [s, a, d, st] = await Promise.all([getJSON('/stats'), getJSON('/alerts?limit=100'), getJSON('/demo/status'),
-                                             getJSON('/alerts?level=student&limit=1')]);
+                                             getJSON('/alerts?level=student&limit=200')]);
     $('sScored').textContent = fmt(s.scored);
     $('sAnalyst').textContent = fmt(s.analyst_alerts);
     $('sStudent').textContent = fmt(s.student_warnings);
@@ -145,6 +169,7 @@ async function refresh() {
     $('demoState').textContent = d.running ? `replaying test days · ${fmt(d.sent)} sent` : 'idle';
     $('demoState').classList.toggle('on', d.running);
     renderAlerts(a);
+    studentList = st;
     renderPhone(st[0]);
   } catch (e) {
     $('demoState').textContent = 'service unreachable';
@@ -163,34 +188,90 @@ function renderAlerts(list) {
       <td class="mono">${esc(x.receiver)}</td>
       <td>${fmt(x.amount)}</td>
       <td>${esc(x.payment_format)}</td>
-      <td class="mono">top ${Math.max(100 - x.risk_score * 100, 0.01).toFixed(2)}%</td>
-      <td><span class="lvl ${x.level}">${x.level === 'student' ? 'Student + analyst' : 'Analyst'}</span></td>
+      <td class="mono">${rarity(x.risk_score)}</td>
+      <td><span class="lvl ${x.level}">${x.level === 'student' ? 'Student + analyst' : 'Analyst'}</span>${answers[x.receiver] ? `<span class="ans">📱 ${esc(ANSWER_COPY[answers[x.receiver].action].short)}</span>` : ''}</td>
       <td><ul class="reasons">${(x.reasons || []).map(r => `<li>${esc(r)}</li>`).join('') || '<li>combined pattern</li>'}</ul></td>
       <td class="truth ${x.is_laundering ? 'yes' : ''}">${x.is_laundering === undefined ? '' : x.is_laundering ? 'Mule payment' : 'Normal'}</td>
     </tr>`).join('');
 }
 
+// Same flow as the StudentShield /demo phone. The question is about all the money in the account, so one answer
+// covers every sender; when more flagged money reaches an account that has answered, we ask whether it still stands.
+// Answers are kept in this page only (the full replay has no per-student state on the server).
+const ANSWER_COPY = {
+  help:  { short: 'Pause, I need help', title: 'Payments out of your account are paused.',
+           body: "Money can still come in, but nothing can be sent out until a specialist has spoken to you. You did the right thing by stopping." },
+  asked: { short: 'Someone asked me to move it', title: 'Thank you for telling us.',
+           body: "Payments out of your account are paused and a specialist will call you. Don't reply to whoever asked you to move it." },
+  legit: { short: 'This is legitimate', title: "Thanks, we'll check this quickly.",
+           body: 'Payments out stay on hold while we confirm. This usually takes less than a day.' },
+};
+let answers = {};           // receiving account -> {action, covers: flagged payments seen when they answered}
+let phoneKey = null, studentList = [];
+
+function warningsFor(acct) { return studentList.filter(x => x.receiver === acct); }
+
 function renderPhone(w) {
   if (!w) {
-    lastStudentId = null;
+    phoneKey = null;
     $('phoneBody').className = 'ok';
     $('phoneBody').innerHTML = '<div class="tick">✓</div>No warnings. Your account looks normal.';
     return;
   }
-  if (w.id === lastStudentId) return;     // only redraw (and animate) for a new warning
-  lastStudentId = w.id;
-  // Student view never shows the risk score, ground truth or analyst details.
+  const mine = warningsFor(w.receiver);
+  const a = answers[w.receiver];
+  const key = `${w.id}|${a ? a.action + a.covers : ''}`;
+  if (key === phoneKey) return;             // only redraw when something changed
+  phoneKey = key;
+  const total = mine.reduce((t, x) => t + Number(x.amount), 0);
+  const senders = new Set(mine.map(x => x.sender)).size;
+  const who = `<div class="who">Account ${esc(w.receiver)} · student persona</div>`;
   $('phoneBody').className = '';
-  $('phoneBody').innerHTML = `
-    <div class="warn">
-      <div class="icon">!</div>
-      <h3>Check before you send this money on</h3>
-      <div class="amt">${fmt(w.amount)} received</div>
-      <p>This payment matches patterns we see in money-mule scams, where people are paid to let money pass through their account.</p>
-      <p>If someone asked you to receive money and send it on, even as a "job", please stop. Moving it on can be a crime even if you didn't know.</p>
-      <button class="b1">I wasn't expecting this: call my bank</button>
-      <button class="b2">This payment is genuine</button>
-    </div>`;
+
+  if (!a) {
+    // Student view never shows the risk score, ground truth or analyst details.
+    $('phoneBody').innerHTML = `${who}
+      <div class="warn">
+        <div class="shield">🛡️</div>
+        <h3>Has someone asked you to move this money?</h3>
+        <p>${fmt(total)} arrived from <b>${senders} ${senders === 1 ? 'person' : 'different people'}</b> in a way that matches money-mule scams.
+        If someone asked you to send it on, <b>stop</b>. Moving it on can be a crime even if you didn't know.</p>
+        <div class="facts">
+          <div><span>Received</span><b>${fmt(total)}</b></div>
+          <div><span>Senders</span><b>${senders}</b></div>
+        </div>
+        <div class="acts">
+          <button class="main" data-act="help">Pause, I need help</button>
+          <button data-act="asked">Someone asked me to move it</button>
+          <button data-act="legit">This is legitimate</button>
+        </div>
+        <div class="help">Free, confidential advice is available. You won't be judged for asking.</div>
+      </div>`;
+  } else {
+    const c = ANSWER_COPY[a.action];
+    const later = mine.slice(0, Math.max(mine.length - a.covers, 0));   // newest first
+    $('phoneBody').innerHTML = `${who}
+      <div class="done">
+        ${later.length ? '' : `<div class="tick ${a.action === 'legit' ? 'info' : ''}">${a.action === 'legit' ? 'i' : '✓'}</div>`}
+        <h3>${c.title}</h3>
+        <p>${c.body}</p>
+        <div class="row2"><span>Your answer</span><b>${esc(c.short)}</b></div>
+        ${later.length ? `
+        <div class="ask">
+          <b>${later.length} more flagged payment${later.length > 1 ? 's' : ''} arrived since you answered</b>
+          <ul>${later.slice(0, 3).map(x => `<li>+${fmt(x.amount)} <span style="color:#6f7687">from ${esc(x.sender)}</span></li>`).join('')}</ul>
+          <p>Does your answer still stand?</p>
+          <div class="acts">${Object.entries(ANSWER_COPY).map(([k, v]) =>
+            `<button data-act="${k}" class="${k === a.action ? 'cur' : ''}">${k === a.action ? 'Yes · ' : ''}${v.short}</button>`).join('')}</div>
+        </div>` : `<p class="note">If more money arrives we'll check in with you again. Don't send any of it on.</p>`}
+      </div>`;
+  }
+  $('phoneBody').querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => {
+    answers[w.receiver] = { action: b.dataset.act, covers: warningsFor(w.receiver).length };
+    phoneKey = null;
+    renderPhone(w);
+    refresh();
+  }));
 }
 
 $('rows').addEventListener('click', e => {
@@ -218,7 +299,7 @@ $('explainBtn').addEventListener('click', async () => {
 });
 
 $('start').addEventListener('click', async () => {
-  selected = null; $('detail').style.display = 'none';
+  selected = null; $('detail').style.display = 'none'; answers = {}; phoneKey = null;
   await getJSON(`/demo/start?rate=${$('rate').value}`, {method: 'POST'});
   refresh();
 });

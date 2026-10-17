@@ -11,12 +11,12 @@ let pausedAt = 0;        // inbound payments covered by the student's latest ans
 
 // What the phone says after each answer. The question is about ALL the money, so one answer covers every sender.
 const ANSWER_COPY = {
-  help:  { short: "Pause, I need help", title: "Thanks. Your transfer is paused.",
-           body: "Nothing leaves your account until a specialist has spoken to you. You did the right thing by stopping." },
+  help:  { short: "Pause, I need help", title: "Payments out of your account are paused.",
+           body: "Money can still come in, but nothing can be sent out until a specialist has spoken to you. You did the right thing by stopping." },
   asked: { short: "Someone asked me to move it", title: "Thank you for telling us.",
-           body: "Your transfer is paused and a specialist will call you. Don't reply to whoever asked you to move it." },
+           body: "Payments out of your account are paused and a specialist will call you. Don't reply to whoever asked you to move it." },
   legit: { short: "This is legitimate", title: "Thanks, we'll check this quickly.",
-           body: "Your transfer stays on hold while we confirm. This usually takes less than a day." },
+           body: "Payments out stay on hold while we confirm. This usually takes less than a day." },
 };   // "idle" | "notif" | "warn" | "done"
 let latest = null;
 
