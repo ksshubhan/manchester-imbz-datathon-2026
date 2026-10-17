@@ -7,7 +7,7 @@ USER root
 RUN pip install --no-cache-dir flask
 
 WORKDIR /app
-COPY app.py /app/app.py
+COPY app.py dashboard.html /app/
 
 ENV DATA_DIR=/data \
     PORT=5000
