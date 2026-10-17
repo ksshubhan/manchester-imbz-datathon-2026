@@ -292,6 +292,8 @@ Top reasons like "0 earlier payments between these two accounts" or "receiving a
 
 ## Phase 4: alert levels (`service/export_for_service.py`)
 
+> **Superseded at 15:25 by Phase 4b below** (cut-offs now chosen with F-beta). Kept for the record.
+
 Thresholds were **set on validation days** (top 1% and top 0.1% of validation scores), then **measured on the untouched test days**:
 
 | Level | Who sees it | Test payments flagged | Laundering caught | Alerts that are real |
@@ -304,3 +306,34 @@ Thresholds were **set on validation days** (top 1% and top 0.1% of validation sc
 **Why the analyst level flags 2.57% instead of 1%:** the cut-off was fixed on validation days, and scores on the test days run a little higher (the same drift seen in Phase 3). We keep the validation-set threshold rather than re-tune on test, which would be cheating. In a real bank the threshold would be recalibrated regularly.
 
 **Pitch line:** *"We warn about 1 in 770 payments, and nearly 1 in 3 of those warnings is a real mule payment, caught before the money moves on."*
+
+---
+
+## Phase 4b: alert levels chosen with F-beta (decision closed 17 Oct, 16:00)
+
+**What changed:** instead of picking round numbers (top 1%, top 0.1%), each cut-off is now the one that maximises an **F-beta score on the validation days**, checking every possible cut-off. Then it is measured once on the untouched test days.
+
+**Why F-beta, and why these betas:** F-beta balances recall and precision, with recall counted beta² times as much as precision. We have two levels because the product has two actions, and each action has a different cost of being wrong:
+- **Analyst alert: F2** (recall-weighted). Missing a mule is worse than an analyst checking an extra payment. Guard-rail: never more than 5% of payments.
+- **Student warning: F0.5** (precision-weighted). Scaring an innocent student is worse than missing a case, because the analyst level still sees it.
+- 2 and 0.5 are the standard values. A cost-based beta would need real bank cost figures we don't have, so a precise-looking beta would just be a guess.
+
+**Results on the test days (9-10 Sep, about 845k payments, 0.1% laundering):**
+
+| Level | Test payments flagged | Alerts per day | Laundering caught | Alerts that are real |
+|---|---|---|---|---|
+| **Analyst alert (F2)** | 0.31% | ~1,300 | **45.9%** | **16.8% (1 in 6)** |
+| **Student warning (F0.5)** | 0.03% | ~125 | **18.6%** | **70.8% (7 in 10)** |
+| old: top 1% of validation | 2.57% | ~10,800 | 75.2% | 3.3% (1 in 30) |
+| old: top 0.1% of validation | 0.13% | ~570 | 34.3% | 28.9% |
+
+**What this means:**
+- Both levels got **stricter**. We catch less laundering in total (analyst recall 75% → 46%), but alerts are **5 times more likely to be real** and the analyst queue is **8 times smaller**.
+- For students this fits the pitch: when we interrupt a student, **7 times out of 10 it really is mule activity**.
+- The new cut-offs are **more stable** between validation and test (0.23% → 0.31% flagged) than the old top-1% level (1% → 2.57%).
+- The trade-off is real and the bank controls it. The chart `~/shared/threshold_sweep.png` shows recall and precision for every possible cut-off, so a bank with more analysts can choose a looser one.
+
+**Pitch lines:**
+- *"7 in 10 of our student warnings are real mule payments, and each one arrives before the money moves on."*
+- *"Each cut-off is chosen by a standard method, weighted for who bears the cost of a mistake."*
+- If asked why we don't catch more: *"We can. Here is the whole trade-off curve. The bank chooses the point that matches its capacity."*
