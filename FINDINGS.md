@@ -230,11 +230,60 @@ Payments with the most points are flagged first, with payment size as a tie-brea
 
 ---
 
-## Results log
-Test days: 9–10 Sep. Base rate (random guessing) = 0.11% laundering, so random scores about 1% recall@1% and 0.001 PR-AUC.
+## Phase 3 results (`notebooks/03_models.ipynb`)
 
-| Model | Test recall@1% | Test precision@1% | Test PR-AUC |
+Trained on **IBM LinuxONE (s390x)**: XGBoost in **21.6 s**, Isolation Forest in 6 s. Train 2.09M payments (2,203 laundering), validation 945k (1,036), test 845k (954).
+
+### Results log (test days 9–10 Sep, never seen during training or tuning)
+
+Random guessing would score about 1% recall@1% and 0.001 PR-AUC (base rate 0.11%).
+
+| Model | Recall @ 1% alerts | Precision @ 1% | PR-AUC |
 |---|---|---|---|
-| Rules baseline | **25.5%** | 2.9% | 0.022 |
-| XGBoost | _to fill_ | _to fill_ | _to fill_ |
-| XGBoost + Isolation Forest | _to fill_ | _to fill_ | _to fill_ |
+| Rules baseline | 25.5% | 2.9% | 0.022 |
+| Isolation Forest only | 1.1% | 0.1% | 0.002 |
+| **XGBoost (final model)** | **59.3%** | **6.7%** | **0.303** |
+| XGBoost + Isolation Forest | same as XGBoost (best blend weight was 0) | | |
+
+**Headline:** flagging the riskiest 1% of payments, the model catches **59% of all laundering vs 25% for the rules**: **2.3x more**, with PR-AUC **13.6x higher**.
+
+### "Isn't it just detecting ACH?" No.
+
+Re-scored on **ACH payments only** (106,123 payments, 832 laundering):
+
+| Model (ACH only) | Recall @ 1% | Precision @ 1% | PR-AUC |
+|---|---|---|---|
+| Rules baseline | 2.3% | 1.8% | 0.026 |
+| **Our model** | **38.5%** | **30.2%** | **0.345** |
+
+**Why this matters:** within ACH, "is it ACH?" tells you nothing, so the rules collapse to almost random. The model still catches 38.5% at a 30% hit rate, so it has learned **real mule behaviour** (first-time pairs, sender fan-out, account activity), not just payment type.
+
+### What the model relies on (feature importance)
+
+| Feature | Share | Meaning |
+|---|---|---|
+| `payment_format` | 58.7% | ACH carries most laundering |
+| `new_pair` | 9.3% | First ever payment between these two accounts |
+| `s_distinct_receivers` | 6.7% | How many accounts the sender pays (fan-out) |
+| `pair_prior_cnt` | 5.9% | History between the two accounts |
+| `s_out_cnt_all` / `s_out_cnt_24h` | 6.8% | Sender activity |
+| `r_in_cnt_1h`, `r_distinct_senders`, `r_passthrough_24h` | ~1.2% each | Receiver behaviour |
+
+Payment format dominates overall, but the ACH-only check above shows the behavioural features do real work.
+
+### Decisions from these results, and why
+
+**1. Isolation Forest is dropped from the score (weight 0).**
+*Why:* on its own it scored no better than random (1.1% recall), and every blend with XGBoost made validation worse (77.7% → 63.8% at weight 0.05 → 18.5% at 0.3). The weight was chosen on validation only, so this is a fair decision, not cherry-picking.
+*Why it failed, and why that's a useful finding:* mule payments don't look *statistically unusual*. They're often ordinary-sized ACH transfers. Anomaly detection flags the extremes (huge amounts, very busy accounts), which are mostly legitimate. **Mules hide in plain sight, so you need models that learn the specific laundering pattern.** That's a good line for the pitch.
+*Effect on the "multi-model" requirement:* our multi-model system becomes **predictive (XGBoost) + generative (LLM explanations)**, which is exactly the second lab's pattern. We report the Isolation Forest result honestly rather than hide it.
+
+**2. Validation scored higher than test (77.7% vs 59.3% recall).**
+*Why it happens:* patterns drift over time, so a model is always a bit worse on later days. This is expected, and it's exactly why we keep a separate, untouched test set. **We quote the test number (59.3%), never the validation number.**
+
+**3. Alert precision is ~1 in 15 at the 1% level, which shapes the product.**
+*What it means:* most alerts at this level are false alarms, as in all real fraud systems.
+*Decision:* the **student warning must be gentle and informative** ("this payment matches patterns seen in money-mule scams, check before you send it on"), never accusatory. Analysts see every alert; students could get a warning only at a stricter threshold, where precision is higher. To size this in Phase 4: measure precision at the top 0.1%.
+
+**4. Explanation wording needs a tidy-up before the LLM uses it.**
+Top reasons like "0 earlier payments between these two accounts" or "receiving account got 0 payments in the last hour" are correct but read awkwardly. Fix the wording in the scoring service (e.g. "these two accounts have never transacted before").
