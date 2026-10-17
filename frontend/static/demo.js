@@ -234,9 +234,9 @@ function flowSvg(alert) {
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Money flow graph">`;
   senders.forEach((snd, i) => {
     s += `<path d="M${cardX + cardW} ${ys[i]} C ${cardX + cardW + 60} ${ys[i]}, ${cx - R - 50} ${cy}, ${cx - R} ${cy}" stroke="#4589ff" stroke-opacity=".55" stroke-width="2" fill="none"/>`;
-    s += `<rect x="${cardX}" y="${ys[i] - 12}" width="${cardW}" height="24" rx="6" fill="#18223a" stroke="#24304d"/>`;
-    s += `<text x="${cardX + 8}" y="${ys[i] + 4}" fill="#c6d0e8" font-size="11" ${mono}>${esc(snd.id)}</text>`;
-    s += `<text x="${cardX + cardW - 8}" y="${ys[i] + 4}" fill="#8b97b3" font-size="10.5" text-anchor="end" ${mono}>${gbp(snd.amount)}</text>`;
+    s += `<rect x="${cardX}" y="${ys[i] - 12}" width="${cardW}" height="24" rx="6" fill="#333333" stroke="#393939"/>`;
+    s += `<text x="${cardX + 8}" y="${ys[i] + 4}" fill="#e0e0e0" font-size="11" ${mono}>${esc(snd.id)}</text>`;
+    s += `<text x="${cardX + cardW - 8}" y="${ys[i] + 4}" fill="#a8a8a8" font-size="10.5" text-anchor="end" ${mono}>${gbp(snd.amount)}</text>`;
   });
   if (alert.destination) {
     const x1 = cx + R, x2 = 470, mid = (x1 + x2) / 2;
@@ -250,8 +250,8 @@ function flowSvg(alert) {
     s += `<text x="${bx}" y="${cy + 12}" fill="#c9b46a" font-size="9.5" text-anchor="middle">next account in the chain</text>`;
   }
   s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-width="2"/>`;
-  s += `<text x="${cx}" y="${cy - 3}" fill="#e6ebf5" font-size="12" text-anchor="middle" font-weight="700" ${mono}>${esc(alert.account_id)}</text>`;
-  s += `<text x="${cx}" y="${cy + 13}" fill="#8b97b3" font-size="10" text-anchor="middle">${esc(alert.holder)}</text>`;
+  s += `<text x="${cx}" y="${cy - 3}" fill="#f4f4f4" font-size="12" text-anchor="middle" font-weight="700" ${mono}>${esc(alert.account_id)}</text>`;
+  s += `<text x="${cx}" y="${cy + 13}" fill="#a8a8a8" font-size="10" text-anchor="middle">${esc(alert.holder)}</text>`;
   s += `</svg>`;
   return s;
 }
@@ -324,6 +324,21 @@ function renderAnalyst(alert) {
 }
 
 // ---------------- loop ----------------
+// Demo pause: while a question is open on the phone the stream waits for the answer.
+// In real time the student had hours before the next payment; the demo compresses that to seconds.
+function renderWaiting(w) {
+  const box = $("waitBanner"), dot = $("liveDot");
+  const on = !!(w && w.active);
+  box.hidden = !on;
+  dot.textContent = on ? "PAUSED" : "LIVE";
+  dot.classList.toggle("paused", on);
+  if (on) {
+    box.innerHTML = `<b>Paused for the student's answer</b>` +
+      (w.next_gap ? `<span>In real time, the next payment into this account arrived ${esc(w.next_gap)} later.</span>`
+                  : `<span>The demo waits so you can answer on the phone.</span>`);
+  }
+}
+
 async function poll() {
   try {
     latest = await api("/api/state");
@@ -335,6 +350,7 @@ async function poll() {
     renderAccounts(latest.accounts);
     renderFeed(latest.feed);
     renderPhone(latest.alert, latest.sim_time, latest.sim_date);
+    renderWaiting(latest.waiting);
     if (latest.error) $("simClock").textContent = latest.error;
     renderAnalyst(latest.alert);
   } catch (e) {
