@@ -115,6 +115,8 @@ h1 { font-family: var(--display); font-weight: 800; font-size: clamp(40px, 5.4vw
 .ok { margin-left: auto; font-style: normal; width: 20px; height: 20px; border-radius: 50%; background: var(--green); color: white; font-size: 11px; display: grid; place-items: center; }
 .spin { margin-left: auto; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid #c9d8ff; border-top-color: var(--blue); animation: rot .8s linear infinite; }
 @keyframes rot { to { transform: rotate(360deg); } }
+.step.done .spin { animation: none; border: 0; background: var(--green); display: grid; place-items: center; }
+.step.done .spin::after { content: "\2713"; color: white; font-size: 11px; }
 
 .z-card { position: absolute; left: 300px; top: 425px; width: 250px; padding: 14px; display: grid; grid-template-columns: 64px 1fr; column-gap: 14px; align-items: center; border-radius: 16px; z-index: 1;
   background: linear-gradient(160deg, #142453, #070d24); border: 1px solid var(--line-dark); box-shadow: 0 20px 50px -14px rgba(0,0,0,.7); }
