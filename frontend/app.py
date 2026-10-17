@@ -25,6 +25,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from urllib.error import HTTPError
 
 from flask import Flask, Response, jsonify, render_template, request
@@ -52,6 +53,46 @@ def model(path, payload=None, timeout=10):
 
 def short_time(ts):
     return ts[11:19] if len(ts) >= 19 else ts
+
+
+def day_label(ts):
+    """'2022-09-09 14:03:00' -> 'Fri 9 Sep' (the case spans several days, so times need a date)."""
+    try:
+        d = datetime.strptime(ts[:10], "%Y-%m-%d")
+        return f"{d:%a} {d.day} {d:%b}"
+    except (ValueError, TypeError):
+        return ""
+
+
+def stamp(ts):
+    """'Fri 9 Sep 14:03' for timelines."""
+    return f"{day_label(ts)} {ts[11:16]}".strip() if ts else ""
+
+
+def parse_ts(ts):
+    return datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
+
+
+def span_text(minutes):
+    """Human lead time: '19 h 12 min', '45 min', '2 days 3 h'."""
+    minutes = int(minutes)
+    d, rem = divmod(minutes, 1440)
+    h, m = divmod(rem, 60)
+    if d:
+        return f"{d} day{'s' if d > 1 else ''} {h} h" if h else f"{d} day{'s' if d > 1 else ''}"
+    if h:
+        return f"{h} h {m} min" if m else f"{h} h"
+    return f"{m} min"
+
+
+def rarity_text(risk_score):
+    """How unusual this score is, against all validation payments. Replaces 'top 0.01%' (a floor, not a fact)."""
+    share = 1 - float(risk_score)
+    if share <= 0:
+        return "No payment in the validation days scored this high"
+    n = 1 / share
+    n = int(float(f"{n:.2g}")) if n >= 100 else round(n)
+    return f"Only about 1 in {n:,} payments scores this high"
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +125,8 @@ S = fresh_state()
 
 
 def add_feed(row, flag=False, kind="transfer"):
-    S["feed"].insert(0, {"time": short_time(row["timestamp"]), "from": row["sender"],
+    S["feed"].insert(0, {"time": row["timestamp"][11:16], "date": day_label(row["timestamp"]),
+                         "from": row["sender"],
                          "to": row["receiver"], "amount": round(float(row["amount_paid"]), 2),
                          "flag": flag, "kind": kind})
     del S["feed"][40:]
@@ -194,9 +236,7 @@ def case_features():
     held = 0
     if first:
         end = S["outbound"][0]["timestamp"] if S["outbound"] else S["clock"]
-        from datetime import datetime
-        fmt = "%Y-%m-%d %H:%M:%S"
-        held = int((datetime.strptime(end[:19], fmt) - datetime.strptime(first[:19], fmt)).total_seconds() // 60)
+        held = int((parse_ts(end) - parse_ts(first)).total_seconds() // 60)
     new_senders = len({r["sender"] for r in ins if float(r.get("new_pair", 0)) >= 1 or float(r.get("pair_prior_cnt", 1)) == 0})
     out_amt = float(S["outbound"][0]["amount_paid"]) if S["outbound"] else 0
     return {
@@ -208,6 +248,28 @@ def case_features():
         "outbound_ratio": round(out_amt / total_in, 2) if total_in else 0,
         "account_age_hours": round(float(ins[0]["r_age_h"]), 1) if ins else None,
     }
+
+
+def lead_time():
+    """How long before the money left did each warning fire? None until the outbound transfer arrives."""
+    if not S["outbound"]:
+        return None
+    out_ts = S["outbound"][0]["timestamp"]
+    first = lambda lv: next((r["timestamp"] for r, res in S["inbound"] if res["level"] in lv), None)
+    stu, ana = first({"student"}), first({"student", "analyst"})
+    mins = lambda ts: (parse_ts(out_ts) - parse_ts(ts)).total_seconds() / 60 if ts else None
+    s_min, a_min = mins(stu), mins(ana)
+    if s_min is not None and s_min >= 0:
+        text = f"Student warned {span_text(s_min)} before the money moved out"
+        if a_min is not None and a_min - s_min >= 1:
+            text += f" (analyst alerted {span_text(a_min)} before)"
+        kind = "student"
+    elif a_min is not None and a_min >= 0:
+        text, kind = f"Analyst alerted {span_text(a_min)} before the money moved out", "analyst"
+    else:
+        text, kind = "No warning before the money moved out", "none"
+    return {"text": text, "kind": kind, "student_minutes": s_min, "analyst_minutes": a_min,
+            "out_time": stamp(out_ts)}
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +312,7 @@ def state():
             acct = S["case"]["account"]
             tiles.insert(min(4, len(tiles)), {"id": acct, "label": "Student (persona)",
                                               "risk": best["probability"], "status": status})
-            timeline = [{"time": short_time(r["timestamp"]),
+            timeline = [{"time": stamp(r["timestamp"]),
                          "text": f"{float(r['amount_paid']):,.0f} in from {r['sender']}"
                                  + (" (new sender)" if float(r.get('pair_prior_cnt', 1)) == 0 else "")
                                  + (f" · score {res['probability']:.2f}, {res['level']}" if res["level"] != "none"
@@ -258,7 +320,7 @@ def state():
                          "kind": "in"} for r, res in S["inbound"]]
             if S["outbound"]:
                 row, held = S["outbound"]
-                timeline.append({"time": short_time(row["timestamp"]),
+                timeline.append({"time": stamp(row["timestamp"]),
                                  "text": f"{float(row['amount_paid']):,.0f} out to {row['receiver']}"
                                          + (": HELD for review" if held else ""),
                                  "kind": "out"})
@@ -266,6 +328,8 @@ def state():
             alert = {
                 "account_id": acct, "holder": "Student (persona)",
                 "risk": best["probability"], "risk_percentile": best["risk_score"],
+                "rarity": rarity_text(best["risk_score"]),
+                "lead_time": lead_time(),
                 "level": best["level"], "status": status, "features": f,
                 "reasons": best.get("reasons", []),
                 "senders": [{"id": r["sender"], "amount": round(float(r["amount_paid"]), 2),
@@ -282,6 +346,7 @@ def state():
         return jsonify({
             "sim_time": short_time(S["clock"]) if S["clock"] else "--:--:--",
             "sim_date": S["clock"][:10] if S["clock"] else "",
+            "sim_day": day_label(S["clock"]) if S["clock"] else "",
             "feed": S["feed"][:18],
             "accounts": tiles,
             "alert": alert,
@@ -326,7 +391,7 @@ def student_action():
     }
     with lock:
         S["student_response"] = {"text": labels.get(action, action),
-                                 "time": short_time(S["clock"] or "")[:5]}
+                                 "time": stamp(S["clock"] or "")}
     return jsonify(ok=True)
 
 

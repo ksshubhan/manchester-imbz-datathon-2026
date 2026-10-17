@@ -110,6 +110,17 @@ def top_reasons(x, payment, k=3):
 
 
 # ---------- messages ----------
+def rarity_text(risk_score):
+    """How unusual the score is against all validation payments, as '1 in N'.
+    Replaces 'top X%', which was floored at 0.01% and so understated the rarest scores."""
+    share = 1 - float(risk_score)
+    if share <= 0:
+        return 'No payment in the validation days scored this high'
+    n = 1 / share
+    n = int(float(f'{n:.2g}')) if n >= 100 else round(n)
+    return f'Only about 1 in {n:,} payments scores this high'
+
+
 def template_messages(a):
     student = (
         'Check before you send this money on. '
@@ -119,7 +130,7 @@ def template_messages(a):
         'even if you did not know. Not sure? Do not move the money and call your bank using the number on your card.'
     )
     analyst = (
-        f'Risk in the top {max(100 * (1 - a["risk_score"]), 0.01):.2f}% of payments. '
+        f'{rarity_text(a["risk_score"])}. '
         f'Flagged because: {"; ".join(a["reasons"]) or "combined pattern"}. '
         f'Suggested action: hold outbound transfers from {a["receiver"]} pending review; '
         f'check sender {a["sender"]} for payments to other new accounts.'

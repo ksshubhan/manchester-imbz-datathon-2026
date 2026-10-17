@@ -33,14 +33,14 @@ function feedRow(p) {
   const cls = p.kind === "held" ? "held" : p.flag ? "flag" : "";
   const arrow = "→";
   return `<li class="${cls}">
-    <span class="t">${esc(p.time)}</span>
+    <span class="t"><small>${esc(p.date || "")}</small>${esc(p.time)}</span>
     <span>${esc(p.from)} ${arrow} ${esc(p.to)}</span>
     <span class="amt">${p.kind === "held" ? "HELD " : ""}${gbp(p.amount)}</span></li>`;
 }
 
 function renderFeed(feed) {
   if (!feed.length) { $("feed").innerHTML = ""; lastFeedKey = null; return; }
-  const key = (p) => p.time + p.from + p.to + p.amount;
+  const key = (p) => (p.date || "") + p.time + p.from + p.to + p.amount;
   if (lastFeedKey === null) {
     $("feed").innerHTML = feed.map(feedRow).join("");
   } else {
@@ -133,27 +133,39 @@ function updateWarnFacts(alert) {
 
 // ---------------- right panel: analyst ----------------
 function flowSvg(alert) {
+  // Layout: senders (left) -> account (centre) -> next account (right).
+  // Sender cards are wide enough for the account id and the amount side by side,
+  // and rows are at least 32px apart, so labels never overlap (up to 8 senders).
   const senders = alert.senders;
-  const W = 520, H = 230, cx = 260, cy = H / 2;
+  const ROW = 32, PAD = 22;
+  const W = 640, H = Math.max(230, PAD * 2 + ROW * (senders.length - 1) + 24);
+  const cx = 330, cy = H / 2, R = 44;
+  const cardX = 8, cardW = 196;
   const col = { green: "#24a148", amber: "#f1c21b", red: "#fa4d56" }[alert.status];
-  const ys = senders.map((_, i) => senders.length === 1 ? cy : 26 + i * ((H - 52) / (senders.length - 1)));
+  const span = ROW * (senders.length - 1);
+  const ys = senders.map((_, i) => senders.length === 1 ? cy : cy - span / 2 + i * ROW);
+  const mono = 'font-family="IBM Plex Mono, monospace"';
 
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Money flow graph">`;
   senders.forEach((snd, i) => {
-    s += `<path d="M110 ${ys[i]} C 180 ${ys[i]}, 190 ${cy}, ${cx - 44} ${cy}" stroke="#4589ff" stroke-opacity=".55" stroke-width="2" fill="none"/>`;
-    s += `<rect x="8" y="${ys[i] - 12}" width="102" height="24" rx="6" fill="#18223a" stroke="#24304d"/>`;
-    s += `<text x="16" y="${ys[i] + 4}" fill="#c6d0e8" font-size="11" font-family="IBM Plex Mono, monospace">${esc(snd.id)}</text>`;
-    s += `<text x="104" y="${ys[i] + 4}" fill="#8b97b3" font-size="10" text-anchor="end" font-family="IBM Plex Mono, monospace">${gbp(snd.amount)}</text>`;
+    s += `<path d="M${cardX + cardW} ${ys[i]} C ${cardX + cardW + 60} ${ys[i]}, ${cx - R - 50} ${cy}, ${cx - R} ${cy}" stroke="#4589ff" stroke-opacity=".55" stroke-width="2" fill="none"/>`;
+    s += `<rect x="${cardX}" y="${ys[i] - 12}" width="${cardW}" height="24" rx="6" fill="#18223a" stroke="#24304d"/>`;
+    s += `<text x="${cardX + 8}" y="${ys[i] + 4}" fill="#c6d0e8" font-size="11" ${mono}>${esc(snd.id)}</text>`;
+    s += `<text x="${cardX + cardW - 8}" y="${ys[i] + 4}" fill="#8b97b3" font-size="10.5" text-anchor="end" ${mono}>${gbp(snd.amount)}</text>`;
   });
   if (alert.destination) {
-    s += `<path d="M${cx + 44} ${cy} L 386 ${cy}" stroke="#f1c21b" stroke-width="2.5" stroke-dasharray="6 5" fill="none"/>`;
-    s += `<text x="${(cx + 44 + 386) / 2}" y="${cy - 8}" fill="#fddc69" font-size="10" text-anchor="middle">${alert.outbound_held ? "HELD" : "SENT"} ${gbp(alert.outbound_amount)}</text>`;
-    s += `<rect x="388" y="${cy - 22}" width="124" height="44" rx="8" fill="rgba(241,194,27,.1)" stroke="#f1c21b"/>`;
-    s += `<text x="450" y="${cy - 3}" fill="#fddc69" font-size="11" text-anchor="middle" font-weight="600" font-family="IBM Plex Mono, monospace">${esc(alert.destination)}</text>`;
-    s += `<text x="450" y="${cy + 12}" fill="#c9b46a" font-size="9.5" text-anchor="middle">next account in the chain</text>`;
+    const x1 = cx + R, x2 = 470, mid = (x1 + x2) / 2;
+    s += `<path d="M${x1} ${cy} L ${x2} ${cy}" stroke="#f1c21b" stroke-width="2.5" stroke-dasharray="6 5" fill="none"/>`;
+    // label on two short lines above the arrow, so it fits between the circle and the box
+    s += `<text x="${mid}" y="${cy - 22}" fill="#fddc69" font-size="10" font-weight="700" text-anchor="middle">${alert.outbound_held ? "HELD" : "SENT"}</text>`;
+    s += `<text x="${mid}" y="${cy - 9}" fill="#fddc69" font-size="10" text-anchor="middle" ${mono}>${gbp(alert.outbound_amount)}</text>`;
+    s += `<rect x="${x2 + 2}" y="${cy - 22}" width="${W - x2 - 10}" height="44" rx="8" fill="rgba(241,194,27,.1)" stroke="#f1c21b"/>`;
+    const bx = (x2 + 2 + W - 8) / 2;
+    s += `<text x="${bx}" y="${cy - 3}" fill="#fddc69" font-size="11" text-anchor="middle" font-weight="600" ${mono}>${esc(alert.destination)}</text>`;
+    s += `<text x="${bx}" y="${cy + 12}" fill="#c9b46a" font-size="9.5" text-anchor="middle">next account in the chain</text>`;
   }
-  s += `<circle cx="${cx}" cy="${cy}" r="44" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-width="2"/>`;
-  s += `<text x="${cx}" y="${cy - 3}" fill="#e6ebf5" font-size="12" text-anchor="middle" font-weight="700" font-family="IBM Plex Mono, monospace">${esc(alert.account_id)}</text>`;
+  s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-width="2"/>`;
+  s += `<text x="${cx}" y="${cy - 3}" fill="#e6ebf5" font-size="12" text-anchor="middle" font-weight="700" ${mono}>${esc(alert.account_id)}</text>`;
   s += `<text x="${cx}" y="${cy + 13}" fill="#8b97b3" font-size="10" text-anchor="middle">${esc(alert.holder)}</text>`;
   s += `</svg>`;
   return s;
@@ -189,7 +201,7 @@ function renderAnalyst(alert) {
       <div class="alert-title">
         <h3>${esc(alert.account_id)} · ${esc(alert.holder)}</h3>
         <span class="pill ${alert.status}">${label}</span>
-        <div class="muted small" style="margin-top:6px">Riskier than ${(alert.risk_percentile * 100).toFixed(2)}% of payments</div>
+        <div class="muted small" style="margin-top:6px">${esc(alert.rarity || "")}</div>
       </div>
     </div>
 
@@ -198,6 +210,10 @@ function renderAnalyst(alert) {
       <div class="chip"><span>Senders</span><b>${f.unique_senders}</b></div>
       <div class="chip"><span>Minutes held</span><b>${f.minutes_held}</b></div>
     </div>
+
+    ${alert.lead_time ? `
+    <div class="lead ${alert.lead_time.kind}">⏱ <b>${esc(alert.lead_time.text)}</b>
+      <span>Money left at ${esc(alert.lead_time.out_time)}${alert.outbound_held ? " and was held for review" : ""}.</span></div>` : ""}
 
     <div class="subhead">Money flow</div>
     <div class="flow">${flowSvg(alert)}</div>
@@ -225,7 +241,7 @@ function renderAnalyst(alert) {
 async function poll() {
   try {
     latest = await api("/api/state");
-    $("simClock").textContent = latest.sim_time;
+    $("simClock").textContent = latest.sim_day ? `${latest.sim_day} · ${latest.sim_time}` : latest.sim_time;
     const arch = latest.platform.arch;
     $("platformBadge").textContent = arch === "s390x"
       ? "Running on IBM LinuxONE · s390x"
