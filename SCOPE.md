@@ -10,7 +10,7 @@
    - Payment: amount vs the account's normal, new sender?, payment type
    - Receiving account: account age, number of unrelated senders recently
    - Sender: fan-out (how many new accounts they've paid recently)
-3. **Models:** rules baseline + XGBoost + anomaly score, combined (covers the multi-model lab).
+3. **Models:** rules baseline + XGBoost. An Isolation Forest anomaly score was tested and dropped (no better than random); multi-model = predictive (XGBoost) + generative (LLM explanations).
 4. **Generative AI:** LLM turns the top reasons into (a) a student warning and (b) an analyst explanation (covers the predictive + generative lab).
 5. **Live demo:** replay script streams transactions in time order -> scoring service in Docker on LinuxONE -> web page with:
    - Student phone view (warning)
