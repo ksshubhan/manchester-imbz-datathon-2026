@@ -201,7 +201,9 @@ def advance():
                 S["best"] = res
                 S["explanation"] = None          # refresh explanation for the new top alert
         else:
-            held = S["best"] is not None and S["best"]["level"] != "none"
+            # Rule 5: transfers out are held only once the account has reached the student level
+            # (~7 in 10 laundering on test days); analyst-only flags are reviewed without blocking the student.
+            held = S["best"] is not None and S["best"]["level"] == "student"
             S["outbound"] = (row, held)
             add_feed(row, flag=held, kind="held" if held else "transfer")
 
@@ -341,7 +343,8 @@ def state():
                 "level": best["level"], "status": status, "features": f,
                 "reasons": best.get("reasons", []),
                 "senders": [{"id": r["sender"], "amount": round(float(r["amount_paid"]), 2),
-                             "laundering": r.get("y") == "1"} for r, _ in S["inbound"]],
+                             "flagged": res["level"] != "none",
+                             "laundering": r.get("y") == "1"} for r, res in S["inbound"]],
                 "destination": S["outbound"][0]["receiver"] if S["outbound"] else None,
                 "outbound_amount": round(float(S["outbound"][0]["amount_paid"]), 2) if S["outbound"] else None,
                 "outbound_held": S["outbound"][1] if S["outbound"] else False,
@@ -390,25 +393,42 @@ def reset():
     return jsonify(ok=True)
 
 
+MAX_ASKS = 3   # Rule 8: the student is asked at most 3 times (first warning + 2 re-asks)
+
+
 @app.route("/api/student-action", methods=["POST"])
 def student_action():
-    """The student answers 'Has someone asked you to move this money?'. One answer covers all the money in
-    the account; when more arrives they are asked again, so every answer is kept with the payment count it covered."""
+    """The student answers 'Has someone asked you to move this money?'. One answer covers all the money in the
+    account; when more FLAGGED money arrives they are asked again (rule 4). Asking stops (rule 8) as soon as they say
+    someone asked them, or after MAX_ASKS answers: the case is handed to a specialist and the phone stops asking."""
     action = (request.json or {}).get("action")
     labels = {
         "help": "paused and asked for help",
         "asked": "someone asked me to move this money",
-        "legit": "says the money is legitimate (kept on hold for a quick check)",
+        "legit": "says the money is legitimate",
     }
     with lock:
+        rs = S["student_responses"]
+        if action not in labels or (rs and rs[-1]["final"]):
+            return jsonify(ok=False, error="no further answers once handed to a specialist")
         ts = S["clock"] or ""
-        prev = S["student_responses"][-1]["action"] if S["student_responses"] else None
-        S["student_responses"].append({
-            "action": action, "text": labels.get(action, str(action)),
-            "time": stamp(ts), "ts": ts,
+        prev = rs[-1]["action"] if rs else None
+        n = len(rs) + 1
+        final = action == "asked" or n >= MAX_ASKS
+        text = labels[action]
+        if final:
+            flagged_since = sum(1 for _, res in S["inbound"][rs[0]["covers"]:] if res["level"] != "none") if rs else 0
+            if action == "asked":
+                text += ". Handed to a specialist"
+            else:
+                text += (f" (answer {n} of {n}, {flagged_since} more flagged payment{'s' if flagged_since != 1 else ''}"
+                         f" since the first answer). Handed to a specialist")
+        rs.append({
+            "action": action, "text": text, "time": stamp(ts), "ts": ts,
             "covers": len(S["inbound"]),                 # inbound payments received when they answered
             "changed": prev is not None and prev != action,
             "repeat": prev is not None,
+            "n": n, "final": final,
         })
     return jsonify(ok=True)
 

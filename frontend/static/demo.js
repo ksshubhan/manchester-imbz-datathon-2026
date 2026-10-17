@@ -10,6 +10,11 @@ let phoneMode = null;
 let pausedAt = 0;        // inbound payments covered by the student's latest answer
 
 // What the phone says after each answer. The question is about ALL the money, so one answer covers every sender.
+// Rule 8: once the student says someone asked them, or after 3 answers, the phone stops asking.
+const FINAL_COPY = {
+  title: "A specialist is handling this.",
+  body: "You don't need to do anything else. Payments out of your account stay paused until they've spoken to you.",
+};
 const ANSWER_COPY = {
   help:  { short: "Pause, I need help", title: "Payments out of your account are paused.",
            body: "Money can still come in, but nothing can be sent out until a specialist has spoken to you. You did the right thing by stopping." },
@@ -71,7 +76,7 @@ function renderPhone(alert, simTime, simDate) {
   let mode = "idle";
   if (alert && alert.student_response) mode = "done:" + alert.student_responses.length;
   else if (alert && alert.status === "red") mode = "warn";
-  else if (alert && alert.status === "amber") mode = "notif";
+  // Rule 2: analyst-only (amber) flags go to the analyst; the phone stays normal.
 
   const hhmm = simTime.slice(0, 5);
   if (mode === phoneMode && mode === "idle") {
@@ -125,10 +130,10 @@ function renderPhone(alert, simTime, simDate) {
       b.addEventListener("click", () => api("/api/student-action", { action: b.dataset.act }).then(poll)));
   } else if (mode.startsWith("done")) {
     const r = alert.student_response;
-    const copy = ANSWER_COPY[r.action] || ANSWER_COPY.help;
+    const copy = r.final ? FINAL_COPY : (ANSWER_COPY[r.action] || ANSWER_COPY.help);
     screen.innerHTML = `
-      <div class="done">
-        <div class="tick ${r.action === "legit" ? "info" : ""}">${r.action === "legit" ? "i" : "✓"}</div>
+      <div class="done ${r.final ? "final" : ""}">
+        <div class="tick ${r.action === "legit" && !r.final ? "info" : ""}">${r.action === "legit" && !r.final ? "i" : "✓"}</div>
         <h3>${copy.title}</h3>
         <p>${copy.body}</p>
         <div class="since" id="dSince"></div>
@@ -172,7 +177,7 @@ function updateDone(alert, simTime) {
   const box = $("dSince");
   if (!box) return;
   const r = alert.student_response;
-  const later = alert.senders.slice(pausedAt);
+  const later = alert.senders.slice(pausedAt).filter((x) => x.flagged);   // Rule 4: re-ask on flagged money only
   const out = alert.outbound_amount ? (alert.outbound_held ? "On hold" : "Sent") : "None";
   const key = later.length + "|" + out;
   const prev = box.dataset.n;
@@ -185,12 +190,18 @@ function updateDone(alert, simTime) {
   box.innerHTML = `
     <div class="row"><span>Your answer</span><b>${esc((ANSWER_COPY[r.action] || {}).short || r.text)}</b></div>
     <div class="row"><span>Your transfer out</span><b>${out}</b></div>
-    ${later.length ? `
+    ${later.length && r.final ? `
+      <div class="ask quiet">
+        <b>Since then: ${later.length} more payment${later.length > 1 ? "s" : ""} (passed to the specialist)</b>
+        <ul>${later.length > shown.length ? `<li class="more">+ ${later.length - shown.length} earlier</li>` : ""}${shown.map((x) =>
+          `<li>+${gbp(x.amount)} <span>from ${esc(x.id)}</span></li>`).join("")}</ul>
+      </div>` : r.final ? `<p class="note">Don't send any money on. The specialist will call you on the number we hold for you.</p>`
+    : later.length ? `
       <div class="ask">
         <b>${later.length} more payment${later.length > 1 ? "s" : ""} arrived since you answered</b>
         <ul>${later.length > shown.length ? `<li class="more">+ ${later.length - shown.length} earlier</li>` : ""}${shown.map((x) =>
           `<li>+${gbp(x.amount)} <span>from ${esc(x.id)}</span></li>`).join("")}</ul>
-        <p>Does your answer still stand?</p>
+        <p>Does your answer still stand? <span class="askn">(question ${r.n + 1} of 3)</span></p>
         <div class="mini">${Object.entries(ANSWER_COPY).map(([k, v]) =>
           `<button data-act="${k}" class="${k === r.action ? "cur" : ""}">${k === r.action ? "Yes · " : ""}${v.short}</button>`).join("")}</div>
       </div>` : `<p class="note">If more money arrives we'll check in with you again. Don't send any of it on.</p>`}`;
@@ -307,8 +318,8 @@ function renderAnalyst(alert) {
     </div>
 
     ${(alert.student_responses || []).map((r) => `
-      <div class="response ${r.action}">📱 <b>${esc(r.time)}</b> · Student ${r.repeat ? (r.changed ? "changed their answer: " : "confirmed: ") : ""}${esc(r.text)}
-        <span>covers ${r.covers} payment${r.covers === 1 ? "" : "s"} received so far</span></div>`).join("")}
+      <div class="response ${r.action} ${r.final ? "final" : ""}">📱 <b>${esc(r.time)}</b> · Student ${r.repeat ? (r.changed ? "changed their answer: " : "confirmed: ") : ""}${esc(r.text)}
+        <span>answer ${r.n} of max 3 · covers ${r.covers} payment${r.covers === 1 ? "" : "s"} received so far${r.final ? " · phone has stopped asking" : ""}</span></div>`).join("")}
   `;
 }
 

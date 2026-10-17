@@ -127,6 +127,7 @@ td.mono{white-space:nowrap}
       <h2 id="dTitle"></h2>
       <p><b>Analyst note:</b> <span id="dAnalyst"></span></p>
       <p><b>Message the student would see:</b> <span id="dStudent"></span></p>
+      <p><b>Student answers (phone):</b><br><span id="dAnswers"></span></p>
       <p class="truth" id="dSource"></p>
       <button class="btn-primary" id="explainBtn">Generate explanation</button>
     </div>
@@ -159,8 +160,8 @@ async function getJSON(url, opts) {
 
 async function refresh() {
   try {
-    const [s, a, d, st] = await Promise.all([getJSON('/stats'), getJSON('/alerts?limit=100'), getJSON('/demo/status'),
-                                             getJSON('/alerts?level=student&limit=200')]);
+    const [s, a, d, st] = await Promise.all([getJSON('/stats'), getJSON('/alerts?limit=500'), getJSON('/demo/status'),
+                                             getJSON('/alerts?level=student&limit=1')]);
     $('sScored').textContent = fmt(s.scored);
     $('sAnalyst').textContent = fmt(s.analyst_alerts);
     $('sStudent').textContent = fmt(s.student_warnings);
@@ -168,9 +169,10 @@ async function refresh() {
     $('sLatency').textContent = s.scored ? `${s.avg_latency_ms} ms` : '–';
     $('demoState').textContent = d.running ? `replaying test days · ${fmt(d.sent)} sent` : 'idle';
     $('demoState').classList.toggle('on', d.running);
-    renderAlerts(a);
-    studentList = st;
+    allAlerts = a;
+    renderAlerts(a.slice(0, 100));
     renderPhone(st[0]);
+    if (selected != null && alertsById[selected]) $('dAnswers').innerHTML = answersHtml(alertsById[selected].receiver);
   } catch (e) {
     $('demoState').textContent = 'service unreachable';
   }
@@ -189,15 +191,22 @@ function renderAlerts(list) {
       <td>${fmt(x.amount)}</td>
       <td>${esc(x.payment_format)}</td>
       <td class="mono">${rarity(x.risk_score)}</td>
-      <td><span class="lvl ${x.level}">${x.level === 'student' ? 'Student + analyst' : 'Analyst'}</span>${answers[x.receiver] ? `<span class="ans">📱 ${esc(ANSWER_COPY[answers[x.receiver].action].short)}</span>` : ''}</td>
+      <td><span class="lvl ${x.level}">${x.level === 'student' ? 'Student + analyst' : 'Analyst'}</span>${answers[x.receiver] ? `<span class="ans">📱 ${esc(answerLabel(x.receiver))}</span>` : ''}</td>
       <td><ul class="reasons">${(x.reasons || []).map(r => `<li>${esc(r)}</li>`).join('') || '<li>combined pattern</li>'}</ul></td>
       <td class="truth ${x.is_laundering ? 'yes' : ''}">${x.is_laundering === undefined ? '' : x.is_laundering ? 'Mule payment' : 'Normal'}</td>
     </tr>`).join('');
 }
 
-// Same flow as the StudentShield /demo phone. The question is about all the money in the account, so one answer
-// covers every sender; when more flagged money reaches an account that has answered, we ask whether it still stands.
-// Answers are kept in this page only (the full replay has no per-student state on the server).
+// Same phone rules as the StudentShield /demo page (see frontend/README.md, "Phone rules"):
+//  R1/R2 the phone only reacts once an account reaches the STUDENT level; analyst-only flags go to the analyst.
+//  R3 warning: "Has someone asked you to move this money?" + three answers. One answer covers all the money.
+//  R4 after an answer, any new FLAGGED payment (analyst or student level) to that account re-asks.
+//  R6 the phone follows the most recently warned account; answers are kept per account.
+//  R8 asking stops when the student says someone asked them, or after 3 answers: "a specialist is handling this".
+// Answers live in this browser tab only (the full replay keeps no per-student state on the server).
+const MAX_ASKS = 3;
+const FINAL_COPY = { title: 'A specialist is handling this.',
+  body: "You don't need to do anything else. Payments out of your account stay paused until they've spoken to you." };
 const ANSWER_COPY = {
   help:  { short: 'Pause, I need help', title: 'Payments out of your account are paused.',
            body: "Money can still come in, but nothing can be sent out until a specialist has spoken to you. You did the right thing by stopping." },
@@ -206,10 +215,12 @@ const ANSWER_COPY = {
   legit: { short: 'This is legitimate', title: "Thanks, we'll check this quickly.",
            body: 'Payments out stay on hold while we confirm. This usually takes less than a day.' },
 };
-let answers = {};           // receiving account -> {action, covers: flagged payments seen when they answered}
-let phoneKey = null, studentList = [];
+let answers = {};           // account -> {history: [...], maxId: newest alert id covered by the latest answer, final}
+let phoneKey = null, allAlerts = [];
 
-function warningsFor(acct) { return studentList.filter(x => x.receiver === acct); }
+const flaggedFor = acct => allAlerts.filter(x => x.receiver === acct);          // newest first, any level
+const answerLabel = acct => { const a = answers[acct]; if (!a) return '';
+  return a.final ? 'Handed to specialist' : ANSWER_COPY[a.history[a.history.length - 1].action].short; };
 
 function renderPhone(w) {
   if (!w) {
@@ -218,15 +229,18 @@ function renderPhone(w) {
     $('phoneBody').innerHTML = '<div class="tick">✓</div>No warnings. Your account looks normal.';
     return;
   }
-  const mine = warningsFor(w.receiver);
-  const a = answers[w.receiver];
-  const key = `${w.id}|${a ? a.action + a.covers : ''}`;
+  const acct = w.receiver;
+  const mine = flaggedFor(acct);
+  const a = answers[acct];
+  const later = a ? mine.filter(x => x.id > a.maxId) : [];
+  const key = `${acct}|${mine.length}|${a ? a.history.length : 0}`;
   if (key === phoneKey) return;             // only redraw when something changed
   phoneKey = key;
   const total = mine.reduce((t, x) => t + Number(x.amount), 0);
   const senders = new Set(mine.map(x => x.sender)).size;
-  const who = `<div class="who">Account ${esc(w.receiver)} · student persona</div>`;
+  const who = `<div class="who">Account ${esc(acct)} · student persona</div>`;
   $('phoneBody').className = '';
+  const list = xs => `<ul>${xs.slice(0, 3).map(x => `<li>+${fmt(x.amount)} <span style="color:#6f7687">from ${esc(x.sender)}</span></li>`).join('')}</ul>`;
 
   if (!a) {
     // Student view never shows the risk score, ground truth or analyst details.
@@ -248,30 +262,50 @@ function renderPhone(w) {
         <div class="help">Free, confidential advice is available. You won't be judged for asking.</div>
       </div>`;
   } else {
-    const c = ANSWER_COPY[a.action];
-    const later = mine.slice(0, Math.max(mine.length - a.covers, 0));   // newest first
+    const last = a.history[a.history.length - 1];
+    const c = a.final ? FINAL_COPY : ANSWER_COPY[last.action];
     $('phoneBody').innerHTML = `${who}
       <div class="done">
-        ${later.length ? '' : `<div class="tick ${a.action === 'legit' ? 'info' : ''}">${a.action === 'legit' ? 'i' : '✓'}</div>`}
+        ${later.length && !a.final ? '' : `<div class="tick ${last.action === 'legit' && !a.final ? 'info' : ''}">${last.action === 'legit' && !a.final ? 'i' : '✓'}</div>`}
         <h3>${c.title}</h3>
         <p>${c.body}</p>
-        <div class="row2"><span>Your answer</span><b>${esc(c.short)}</b></div>
-        ${later.length ? `
+        <div class="row2"><span>Your answer</span><b>${esc(ANSWER_COPY[last.action].short)}</b></div>
+        ${a.final ? (later.length ? `
+        <div class="ask" style="background:#fff;border-color:#e3e6ef">
+          <b>Since then: ${later.length} more payment${later.length > 1 ? 's' : ''} (passed to the specialist)</b>${list(later)}
+        </div>` : `<p class="note">Don't send any money on. The specialist will call you on the number we hold for you.</p>`)
+        : later.length ? `
         <div class="ask">
-          <b>${later.length} more flagged payment${later.length > 1 ? 's' : ''} arrived since you answered</b>
-          <ul>${later.slice(0, 3).map(x => `<li>+${fmt(x.amount)} <span style="color:#6f7687">from ${esc(x.sender)}</span></li>`).join('')}</ul>
-          <p>Does your answer still stand?</p>
+          <b>${later.length} more flagged payment${later.length > 1 ? 's' : ''} arrived since you answered</b>${list(later)}
+          <p>Does your answer still stand? <span style="font-weight:400;color:#6f7687">(question ${a.history.length + 1} of ${MAX_ASKS})</span></p>
           <div class="acts">${Object.entries(ANSWER_COPY).map(([k, v]) =>
-            `<button data-act="${k}" class="${k === a.action ? 'cur' : ''}">${k === a.action ? 'Yes · ' : ''}${v.short}</button>`).join('')}</div>
+            `<button data-act="${k}" class="${k === last.action ? 'cur' : ''}">${k === last.action ? 'Yes · ' : ''}${v.short}</button>`).join('')}</div>
         </div>` : `<p class="note">If more money arrives we'll check in with you again. Don't send any of it on.</p>`}
       </div>`;
   }
   $('phoneBody').querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => {
-    answers[w.receiver] = { action: b.dataset.act, covers: warningsFor(w.receiver).length };
+    const cur = answers[acct] || { history: [], maxId: -1, final: false };
+    if (cur.final) return;
+    const n = cur.history.length + 1;
+    const final = b.dataset.act === 'asked' || n >= MAX_ASKS;
+    const flaggedSince = cur.history.length ? flaggedFor(acct).filter(x => x.id > cur.history[0].maxId).length : 0;
+    cur.history.push({ action: b.dataset.act, n, final, maxId: Math.max(...flaggedFor(acct).map(x => x.id)),
+                       time: (w.timestamp || '').slice(5, 16), flaggedSince });
+    cur.maxId = cur.history[cur.history.length - 1].maxId;
+    cur.final = final;
+    answers[acct] = cur;
     phoneKey = null;
     renderPhone(w);
     refresh();
   }));
+}
+
+function answersHtml(acct) {
+  const a = answers[acct];
+  if (!a) return 'No answer from the student yet.';
+  return a.history.map(h => `${h.n}. ${esc(ANSWER_COPY[h.action].short)}` +
+    (h.final ? (h.action === 'asked' ? ' → handed to a specialist' :
+      ` → handed to a specialist (answered ${h.n} times, ${h.flaggedSince} more flagged payment${h.flaggedSince === 1 ? '' : 's'} since the first answer)`) : '')).join('<br>');
 }
 
 $('rows').addEventListener('click', e => {
@@ -283,6 +317,7 @@ $('rows').addEventListener('click', e => {
   $('dTitle').textContent = `Alert #${a.id}: ${a.receiver}, ${fmt(a.amount)} by ${a.payment_format}`;
   $('dAnalyst').textContent = a.analyst_message;
   $('dStudent').textContent = a.student_message;
+  $('dAnswers').innerHTML = answersHtml(a.receiver);
   $('dSource').textContent = 'Written from a template using the model\'s reasons.';
   document.querySelectorAll('tr.alert-row').forEach(r => r.classList.toggle('sel', r === tr));
 });

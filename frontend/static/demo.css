@@ -276,3 +276,8 @@ a.btn { text-decoration: none; }
 .response.asked { background: rgba(250, 77, 86, .12); border-color: rgba(250, 77, 86, .45); color: #ffb3b8; }
 .response.legit { background: rgba(69, 137, 255, .12); border-color: rgba(69, 137, 255, .45); color: #a6c8ff; }
 .done ~ .warn-new { top: auto; bottom: 14px; }
+
+/* rule 8: final state, phone stops asking */
+.since .ask.quiet { background: #fff; border-color: #e3e6ef; }
+.since .askn { font-weight: 400; color: #6f7687; font-size: 11px; }
+.response.final { box-shadow: inset 4px 0 0 currentColor; font-weight: 600; }
