@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mule Early Warning</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f4f4f4; --panel:#fff; --ink:#161616; --muted:#6f6f6f; --line:#e0e0e0;
+  --blue:#0f62fe; --red:#da1e28; --amber:#f1c21b; --green:#24a148; --soft-red:#fff1f1; --soft-amber:#fcf4d6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "IBM Plex Sans",system-ui,sans-serif}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+header{background:#161616;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{font-size:18px;font-weight:600;margin:0}
+.badge{font-size:12px;padding:3px 10px;border-radius:12px;background:#393939;color:#f4f4f4}
+.badge.on{background:#0f62fe}
+.controls{margin-left:auto;display:flex;gap:8px;align-items:center}
+button,select{font:inherit;border:0;border-radius:4px;padding:7px 14px;cursor:pointer}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-ghost{background:#393939;color:#fff}
+select{background:#393939;color:#fff}
+main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px 24px;max-width:1500px;margin:0 auto}
+.stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.stat{background:var(--panel);padding:14px 16px;border-top:3px solid var(--line)}
+.stat .v{font-size:28px;font-weight:600}
+.stat .l{color:var(--muted);font-size:12px}
+.stat.red{border-color:var(--red)} .stat.amber{border-color:var(--amber)} .stat.green{border-color:var(--green)} .stat.blue{border-color:var(--blue)}
+.card{background:var(--panel);padding:16px}
+.card h2{font-size:15px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:12px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.alert-row{cursor:pointer}
+tr.alert-row:hover{background:#f8f8f8}
+tr.sel{background:#edf5ff !important}
+.lvl{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.lvl.student{background:var(--soft-red);color:var(--red)}
+.lvl.analyst{background:var(--soft-amber);color:#8e6a00}
+.truth{font-size:11px;color:var(--muted)}
+.truth.yes{color:var(--red);font-weight:600}
+.reasons{margin:0;padding-left:16px;color:#393939}
+.tablewrap{max-height:520px;overflow:auto}
+.detail{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;display:none}
+.detail p{margin:6px 0}
+.empty{color:var(--muted);padding:24px 8px;text-align:center}
+/* phone */
+.phone{width:320px;margin:0 auto;background:#161616;border-radius:36px;padding:14px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
+.screen{background:#f2f2f7;border-radius:26px;min-height:600px;padding:18px 14px;position:relative;overflow:hidden}
+.notch{width:110px;height:22px;background:#161616;border-radius:0 0 14px 14px;margin:-18px auto 14px}
+.bank{font-weight:600;font-size:16px;margin-bottom:2px}
+.balance{color:var(--muted);font-size:12px;margin-bottom:14px}
+.warn{background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);animation:pop .35s ease}
+@keyframes pop{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.warn .icon{width:36px;height:36px;border-radius:50%;background:var(--soft-amber);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:8px}
+.warn h3{margin:0 0 6px;font-size:16px}
+.warn .amt{font-size:22px;font-weight:600;margin:6px 0}
+.warn p{font-size:13px;color:#393939;margin:6px 0}
+.warn button{width:100%;margin-top:8px;padding:10px;border-radius:10px}
+.b1{background:var(--blue);color:#fff}
+.b2{background:#e8e8ed;color:var(--ink)}
+.ok{text-align:center;color:var(--muted);padding-top:120px}
+.ok .tick{font-size:40px;color:var(--green)}
+.foot{font-size:11px;color:var(--muted);text-align:center;margin-top:10px}
+@media (max-width:1000px){main{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mule Early Warning</h1>
+  <span class="badge" id="machine">connecting…</span>
+  <span class="badge" id="demoState">idle</span>
+  <div class="controls">
+    <select id="rate" title="Payments per second">
+      <option value="5">Slow (5/s)</option>
+      <option value="20" selected>Normal (20/s)</option>
+      <option value="100">Fast (100/s)</option>
+    </select>
+    <button class="btn-primary" id="start">▶ Start live demo</button>
+    <button class="btn-ghost" id="stop">Stop</button>
+  </div>
+</header>
+
+<main>
+  <section class="stats">
+    <div class="stat blue"><div class="v" id="sScored">0</div><div class="l">Payments scored in real time</div></div>
+    <div class="stat amber"><div class="v" id="sAnalyst">0</div><div class="l">Analyst alerts (top 1% risk)</div></div>
+    <div class="stat red"><div class="v" id="sStudent">0</div><div class="l">Student warnings (top 0.1% risk)</div></div>
+    <div class="stat green"><div class="v" id="sCaught">0 / 0</div><div class="l">Mule payments caught before moving on</div></div>
+    <div class="stat"><div class="v" id="sLatency">–</div><div class="l">Average time to score a payment</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Analyst view: live alerts</h2>
+    <div class="sub">Newest first. Click an alert for the explanation. "Ground truth" comes from the synthetic dataset and is shown for the demo only.</div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Time</th><th>Receiving account</th><th>Amount</th><th>Method</th><th>Risk</th><th>Level</th><th>Why it was flagged</th><th>Ground truth</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="8" class="empty">No alerts yet. Press "Start live demo".</td></tr></tbody>
+      </table>
+    </div>
+    <div class="detail" id="detail">
+      <h2 id="dTitle"></h2>
+      <p><b>Analyst note:</b> <span id="dAnalyst"></span></p>
+      <p><b>Message the student would see:</b> <span id="dStudent"></span></p>
+      <p class="truth" id="dSource"></p>
+      <button class="btn-primary" id="explainBtn">Generate explanation</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="phone"><div class="screen" id="phone">
+      <div class="notch"></div>
+      <div class="bank">Your bank</div>
+      <div class="balance">Student current account</div>
+      <div id="phoneBody" class="ok"><div class="tick">✓</div>No warnings. Your account looks normal.</div>
+    </div></div>
+    <div class="foot">Student view: shown before the money can be sent on</div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n).toLocaleString('en-GB', {maximumFractionDigits: 0});
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let alertsById = {}, selected = null, lastStudentId = null;
+
+async function getJSON(url, opts) {
+  const r = await fetch(url, opts);
+  return r.json();
+}
+
+async function refresh() {
+  try {
+    const [s, a, d, st] = await Promise.all([getJSON('/stats'), getJSON('/alerts?limit=100'), getJSON('/demo/status'),
+                                             getJSON('/alerts?level=student&limit=1')]);
+    $('sScored').textContent = fmt(s.scored);
+    $('sAnalyst').textContent = fmt(s.analyst_alerts);
+    $('sStudent').textContent = fmt(s.student_warnings);
+    $('sCaught').textContent = `${s.laundering_caught} / ${s.laundering_seen}`;
+    $('sLatency').textContent = s.scored ? `${s.avg_latency_ms} ms` : '–';
+    $('demoState').textContent = d.running ? `replaying test days · ${fmt(d.sent)} sent` : 'idle';
+    $('demoState').classList.toggle('on', d.running);
+    renderAlerts(a);
+    renderPhone(st[0]);
+  } catch (e) {
+    $('demoState').textContent = 'service unreachable';
+  }
+}
+
+function renderAlerts(list) {
+  alertsById = Object.fromEntries(list.map(x => [x.id, x]));
+  if (!list.length) {
+    $('rows').innerHTML = '<tr><td colspan="8" class="empty">No alerts yet. Press "Start live demo".</td></tr>';
+    return;
+  }
+  $('rows').innerHTML = list.map(x => `
+    <tr class="alert-row ${x.id === selected ? 'sel' : ''}" data-id="${x.id}">
+      <td class="mono">${esc((x.timestamp || '').slice(5, 16))}</td>
+      <td class="mono">${esc(x.receiver)}</td>
+      <td>${fmt(x.amount)}</td>
+      <td>${esc(x.payment_format)}</td>
+      <td class="mono">top ${Math.max(100 - x.risk_score * 100, 0.01).toFixed(2)}%</td>
+      <td><span class="lvl ${x.level}">${x.level === 'student' ? 'Student + analyst' : 'Analyst'}</span></td>
+      <td><ul class="reasons">${(x.reasons || []).map(r => `<li>${esc(r)}</li>`).join('') || '<li>combined pattern</li>'}</ul></td>
+      <td class="truth ${x.is_laundering ? 'yes' : ''}">${x.is_laundering === undefined ? '' : x.is_laundering ? 'Mule payment' : 'Normal'}</td>
+    </tr>`).join('');
+}
+
+function renderPhone(w) {
+  if (!w) {
+    lastStudentId = null;
+    $('phoneBody').className = 'ok';
+    $('phoneBody').innerHTML = '<div class="tick">✓</div>No warnings. Your account looks normal.';
+    return;
+  }
+  if (w.id === lastStudentId) return;     // only redraw (and animate) for a new warning
+  lastStudentId = w.id;
+  // Student view never shows the risk score, ground truth or analyst details.
+  $('phoneBody').className = '';
+  $('phoneBody').innerHTML = `
+    <div class="warn">
+      <div class="icon">!</div>
+      <h3>Check before you send this money on</h3>
+      <div class="amt">${fmt(w.amount)} received</div>
+      <p>This payment matches patterns we see in money-mule scams, where people are paid to let money pass through their account.</p>
+      <p>If someone asked you to receive money and send it on, even as a "job", please stop. Moving it on can be a crime even if you didn't know.</p>
+      <button class="b1">I wasn't expecting this: call my bank</button>
+      <button class="b2">This payment is genuine</button>
+    </div>`;
+}
+
+$('rows').addEventListener('click', e => {
+  const tr = e.target.closest('tr.alert-row');
+  if (!tr) return;
+  const a = alertsById[tr.dataset.id];
+  selected = a.id;
+  $('detail').style.display = 'block';
+  $('dTitle').textContent = `Alert #${a.id}: ${a.receiver}, ${fmt(a.amount)} by ${a.payment_format}`;
+  $('dAnalyst').textContent = a.analyst_message;
+  $('dStudent').textContent = a.student_message;
+  $('dSource').textContent = 'Written from a template using the model\'s reasons.';
+  document.querySelectorAll('tr.alert-row').forEach(r => r.classList.toggle('sel', r === tr));
+});
+
+$('explainBtn').addEventListener('click', async () => {
+  if (selected == null) return;
+  $('explainBtn').textContent = 'Generating…';
+  const r = await getJSON(`/explain/${selected}`);
+  $('explainBtn').textContent = 'Generate explanation';
+  if (r.error) { $('dSource').textContent = r.error; return; }
+  $('dAnalyst').textContent = r.analyst_message;
+  $('dStudent').textContent = r.student_message;
+  $('dSource').textContent = `Source: ${r.source}`;
+});
+
+$('start').addEventListener('click', async () => {
+  selected = null; $('detail').style.display = 'none';
+  await getJSON(`/demo/start?rate=${$('rate').value}`, {method: 'POST'});
+  refresh();
+});
+$('stop').addEventListener('click', async () => { await getJSON('/demo/stop', {method: 'POST'}); refresh(); });
+
+getJSON('/health').then(h => {
+  $('machine').textContent = `Running on IBM LinuxONE · ${h.machine}`;
+  $('machine').classList.add('on');
+}).catch(() => {});
+refresh();
+setInterval(refresh, 1000);
+</script>
+</body>
+</html>
