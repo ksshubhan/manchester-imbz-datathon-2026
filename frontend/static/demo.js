@@ -3,7 +3,8 @@
 const POLL_MS = 800;
 const $ = (id) => document.getElementById(id);
 
-let lastFeedKey = null;
+let seenRows = new Set();
+let lastFeedHtml = "";
 let lastAlertJson = null;
 let phoneMode = null;   // "idle" | "notif" | "warn" | "done"
 let latest = null;
@@ -23,7 +24,7 @@ async function api(path, body) {
 // ---------------- left panel ----------------
 function renderAccounts(accounts) {
   $("accounts").innerHTML = accounts.map((a) => `
-    <div class="acct ${a.status}">
+    <div class="acct ${a.status}" title="${esc(a.id)}">
       <div class="id">${esc(a.id)}</div>
       <div class="lbl">${esc(a.label)} · ${Math.round(a.risk * 100)}%</div>
     </div>`).join("");
@@ -33,28 +34,25 @@ function feedRow(p) {
   const cls = p.kind === "held" ? "held" : p.flag ? "flag" : "";
   const arrow = "→";
   return `<li class="${cls}">
-    <span class="t"><small>${esc(p.date || "")}</small>${esc(p.time)}</span>
-    <span>${esc(p.from)} ${arrow} ${esc(p.to)}</span>
+    <span class="t">${esc(p.time)}</span>
+    <span class="ft"><span title="${esc(p.from)}">${esc(p.from)}</span><span class="to" title="${esc(p.to)}">${arrow} ${esc(p.to)}</span></span>
     <span class="amt">${p.kind === "held" ? "HELD " : ""}${gbp(p.amount)}</span></li>`;
 }
 
 function renderFeed(feed) {
-  if (!feed.length) { $("feed").innerHTML = ""; lastFeedKey = null; return; }
+  // Rebuilt each poll (max 18 rows): a day divider goes above each run of same-day payments.
+  // Only rows not seen before get the slide-in animation.
   const key = (p) => (p.date || "") + p.time + p.from + p.to + p.amount;
-  if (lastFeedKey === null) {
-    $("feed").innerHTML = feed.map(feedRow).join("");
-  } else {
-    const fresh = [];
-    for (const p of feed) { if (key(p) === lastFeedKey) break; fresh.push(p); }
-    if (fresh.length === feed.length) {
-      $("feed").innerHTML = feed.map(feedRow).join("");
-    } else if (fresh.length) {
-      $("feed").insertAdjacentHTML("afterbegin", fresh.map(feedRow).join(""));
-      const ul = $("feed");
-      while (ul.children.length > 18) ul.lastElementChild.remove();
-    }
-  }
-  lastFeedKey = key(feed[0]);
+  const html = [];
+  let day = null;
+  feed.forEach((p) => {
+    if (p.date && p.date !== day) { html.push(`<li class="day">${esc(p.date)}</li>`); day = p.date; }
+    const row = feedRow(p);
+    html.push(seenRows.has(key(p)) ? row.replace("<li ", '<li style="animation:none" ') : row);
+  });
+  const next = html.join("");
+  if (next !== lastFeedHtml) { $("feed").innerHTML = next; lastFeedHtml = next; }
+  seenRows = new Set(feed.map(key));
 }
 
 // ---------------- middle panel: phone ----------------
@@ -263,7 +261,7 @@ $("runBtn").addEventListener("click", async () => {
 });
 $("resetBtn").addEventListener("click", async () => {
   await api("/api/reset", {});
-  lastFeedKey = null; lastAlertJson = undefined; phoneMode = null;
+  seenRows = new Set(); lastFeedHtml = ""; lastAlertJson = undefined; phoneMode = null;
   $("runBtn").disabled = false;
   poll();
 });
@@ -275,7 +273,7 @@ setInterval(poll, POLL_MS);
 if (new URLSearchParams(location.search).get("autostart") === "1") {
   setTimeout(async () => {
     await api("/api/reset", {});
-    lastFeedKey = null; lastAlertJson = undefined; phoneMode = null;
+    seenRows = new Set(); lastFeedHtml = ""; lastAlertJson = undefined; phoneMode = null;
     setTimeout(() => $("runBtn").click(), 1800);
   }, 400);
 }

@@ -93,13 +93,14 @@ a.btn { text-decoration: none; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
 /* ---------- account tiles ---------- */
-.accounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+.accounts { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 6px; margin-bottom: 14px; }
 .acct {
   padding: 8px; border-radius: 8px; background: var(--panel-2);
   border: 1px solid var(--line); border-left: 3px solid var(--green);
   font-size: 11px; transition: all .4s;
 }
-.acct .id { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 11px; }
+.acct { min-width: 0; }
+.acct .id { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .acct .lbl { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .acct.amber { border-left-color: var(--amber); background: rgba(241, 194, 27, .08); }
 .acct.red {
@@ -110,7 +111,7 @@ a.btn { text-decoration: none; }
 
 /* ---------- feed ---------- */
 .feed-head, .feed li {
-  display: grid; grid-template-columns: 74px 1fr 92px; gap: 8px; align-items: center;
+  display: grid; grid-template-columns: 46px minmax(0, 1fr) 84px; gap: 8px; align-items: center;
 }
 .feed-head { font-size: 11px; color: var(--muted); padding: 0 8px 6px; border-bottom: 1px solid var(--line); }
 .feed { list-style: none; max-height: 430px; overflow: hidden; }
@@ -118,8 +119,13 @@ a.btn { text-decoration: none; }
   padding: 7px 8px; border-bottom: 1px solid rgba(36, 48, 77, .6);
   font-size: 12px; animation: slidein .35s ease-out;
 }
-.feed li .t { color: var(--muted); line-height: 1.25; }
-.feed li .t small { display: block; font-size: 10px; opacity: .8; }
+.feed li .t { color: var(--muted); }
+.feed li .ft { min-width: 0; line-height: 1.35; }
+.feed li .ft span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feed li .ft .to { color: var(--muted); }
+.feed li.flag .ft .to, .feed li.held .ft .to { color: inherit; opacity: .8; }
+.feed li.day { display: block; padding: 5px 8px; font-size: 10.5px; color: var(--muted); letter-spacing: .4px;
+  text-transform: uppercase; background: rgba(255, 255, 255, .03); border-bottom: 1px solid var(--line); animation: none; }
 .feed li .amt { text-align: right; }
 .feed li.flag { background: rgba(250, 77, 86, .1); color: #ffb3b8; }
 .feed li.held { background: rgba(241, 194, 27, .12); color: #fddc69; }

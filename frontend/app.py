@@ -177,7 +177,7 @@ def advance():
         except Exception:
             continue
         S["tiles"][row["receiver"]] = (res["probability"], res["level"])
-        if len(S["tiles"]) > 11:
+        if len(S["tiles"]) > 7:
             S["tiles"].pop(next(iter(S["tiles"])))
         add_feed(row, flag=res["level"] != "none")
 
@@ -302,7 +302,7 @@ def state():
         except Exception as e:
             S["error"] = f"scoring service error ({type(e).__name__})"
         tiles = [{"id": a, "label": "real account", "risk": p, "status": status_of(lvl)}
-                 for a, (p, lvl) in list(S["tiles"].items())[-11:]]
+                 for a, (p, lvl) in list(S["tiles"].items())[-7:]]
 
         alert = None
         if S["inbound"]:
