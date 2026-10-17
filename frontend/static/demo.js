@@ -42,7 +42,7 @@ function renderAccounts(accounts) {
   $("accounts").innerHTML = accounts.map((a) => `
     <div class="acct ${a.status}" title="${esc(a.id)}">
       <div class="id">${esc(a.id)}</div>
-      <div class="lbl">${esc(a.label)} · ${Math.round(a.risk * 100)}%</div>
+      <div class="lbl">${esc(a.label)}${a.status === "green" ? "" : ` · ${Math.round(a.risk * 100)}%`}</div>
     </div>`).join("");
 }
 
