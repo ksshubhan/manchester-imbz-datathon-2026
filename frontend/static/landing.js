@@ -10,7 +10,7 @@ onScroll();
 const steps = [...document.querySelectorAll("#pipeline .step")];
 let active = 0;
 function tickPipeline() {
-  steps.forEach((s, i) => s.classList.toggle("on", i <= active));
+  steps.forEach((s, i) => { s.classList.toggle("on", i <= active); s.classList.toggle("done", i < active); });
   active = active >= steps.length ? 0 : active + 1;
 }
 tickPipeline();
