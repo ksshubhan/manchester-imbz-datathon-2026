@@ -115,7 +115,7 @@ def fresh_state():
         "best": None,                # highest-scoring inbound result (drives risk + explanation)
         "explanation": None,
         "explain_source": None,
-        "student_response": None,
+        "student_responses": [],     # every answer the student gives, newest last
         "clock": None,
         "error": None,
     }
@@ -324,6 +324,14 @@ def state():
                                  "text": f"{float(row['amount_paid']):,.0f} out to {row['receiver']}"
                                          + (": HELD for review" if held else ""),
                                  "kind": "out"})
+            for r in S["student_responses"]:
+                timeline.append({"time": r["time"], "text": "Student: " + r["text"], "kind": "student", "_ts": r["ts"]})
+            ts_of = [r["timestamp"] for r, _ in S["inbound"]] + ([S["outbound"][0]["timestamp"]] if S["outbound"] else [])
+            for i, t in enumerate(timeline):
+                t.setdefault("_ts", ts_of[i] if i < len(ts_of) else "")
+            timeline.sort(key=lambda t: t["_ts"])
+            for t in timeline:
+                t.pop("_ts", None)
             text, source = explanation()
             alert = {
                 "account_id": acct, "holder": "Student (persona)",
@@ -339,7 +347,8 @@ def state():
                 "outbound_held": S["outbound"][1] if S["outbound"] else False,
                 "timeline": timeline,
                 "explanation": text, "explanation_source": source,
-                "student_response": S["student_response"],
+                "student_response": S["student_responses"][-1] if S["student_responses"] else None,
+                "student_responses": S["student_responses"],
                 "case_done": S["ev_i"] >= len(S["events"]),
             }
 
@@ -383,15 +392,24 @@ def reset():
 
 @app.route("/api/student-action", methods=["POST"])
 def student_action():
+    """The student answers 'Has someone asked you to move this money?'. One answer covers all the money in
+    the account; when more arrives they are asked again, so every answer is kept with the payment count it covered."""
     action = (request.json or {}).get("action")
     labels = {
-        "help": "Student paused and asked for help",
-        "asked": "Student reported: someone asked them to move this money",
-        "legit": "Student says the funds are legitimate (escalated for review)",
+        "help": "paused and asked for help",
+        "asked": "someone asked me to move this money",
+        "legit": "says the money is legitimate (kept on hold for a quick check)",
     }
     with lock:
-        S["student_response"] = {"text": labels.get(action, action),
-                                 "time": stamp(S["clock"] or "")}
+        ts = S["clock"] or ""
+        prev = S["student_responses"][-1]["action"] if S["student_responses"] else None
+        S["student_responses"].append({
+            "action": action, "text": labels.get(action, str(action)),
+            "time": stamp(ts), "ts": ts,
+            "covers": len(S["inbound"]),                 # inbound payments received when they answered
+            "changed": prev is not None and prev != action,
+            "repeat": prev is not None,
+        })
     return jsonify(ok=True)
 
 

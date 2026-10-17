@@ -7,7 +7,17 @@ let seenRows = new Set();
 let lastFeedHtml = "";
 let lastAlertJson = null;
 let phoneMode = null;
-let pausedAt = 0;        // inbound payments received before the student paused   // "idle" | "notif" | "warn" | "done"
+let pausedAt = 0;        // inbound payments covered by the student's latest answer
+
+// What the phone says after each answer. The question is about ALL the money, so one answer covers every sender.
+const ANSWER_COPY = {
+  help:  { short: "Pause, I need help", title: "Thanks. Your transfer is paused.",
+           body: "Nothing leaves your account until a specialist has spoken to you. You did the right thing by stopping." },
+  asked: { short: "Someone asked me to move it", title: "Thank you for telling us.",
+           body: "Your transfer is paused and a specialist will call you. Don't reply to whoever asked you to move it." },
+  legit: { short: "This is legitimate", title: "Thanks, we'll check this quickly.",
+           body: "Your transfer stays on hold while we confirm. This usually takes less than a day." },
+};   // "idle" | "notif" | "warn" | "done"
 let latest = null;
 
 // Amounts are in each payment's own currency (the IBM dataset mixes currencies), so no £ sign.
@@ -59,7 +69,7 @@ function renderFeed(feed) {
 // ---------------- middle panel: phone ----------------
 function renderPhone(alert, simTime, simDate) {
   let mode = "idle";
-  if (alert && alert.student_response) mode = "done";
+  if (alert && alert.student_response) mode = "done:" + alert.student_responses.length;
   else if (alert && alert.status === "red") mode = "warn";
   else if (alert && alert.status === "amber") mode = "notif";
 
@@ -71,7 +81,7 @@ function renderPhone(alert, simTime, simDate) {
   }
   if (mode === phoneMode) {
     if (mode === "warn") updateWarnFacts(alert, simTime);
-    if (mode === "done") updateDone(alert, simTime);
+    if (mode.startsWith("done")) updateDone(alert, simTime);
     return;
   }
   phoneMode = mode;
@@ -113,17 +123,18 @@ function renderPhone(alert, simTime, simDate) {
       </div>`;
     screen.querySelectorAll("button[data-act]").forEach((b) =>
       b.addEventListener("click", () => api("/api/student-action", { action: b.dataset.act }).then(poll)));
-  } else if (mode === "done") {
+  } else if (mode.startsWith("done")) {
+    const r = alert.student_response;
+    const copy = ANSWER_COPY[r.action] || ANSWER_COPY.help;
     screen.innerHTML = `
       <div class="done">
-        <div class="tick">✓</div>
-        <h3>Thanks. Your transfer is paused.</h3>
-        <p>Nothing leaves your account until a specialist has spoken to you.
-        You did the right thing by stopping.</p>
+        <div class="tick ${r.action === "legit" ? "info" : ""}">${r.action === "legit" ? "i" : "✓"}</div>
+        <h3>${copy.title}</h3>
+        <p>${copy.body}</p>
         <div class="since" id="dSince"></div>
       </div>
       <div class="warn-new" id="wNew"></div>`;
-    pausedAt = alert.senders.length;
+    pausedAt = r.covers;
     updateDone(alert, simTime);
   }
 }
@@ -155,24 +166,37 @@ function updateWarnFacts(alert, simTime) {
   }
 }
 
-// After the student pauses, money can keep arriving: list it on the paused screen so the phone stays live.
+// After the student answers, money can keep arriving. Their answer covers all of it, so when new money lands
+// we list it and ask once more whether the answer still stands (one decision about the situation, not per payment).
 function updateDone(alert, simTime) {
   const box = $("dSince");
   if (!box) return;
+  const r = alert.student_response;
   const later = alert.senders.slice(pausedAt);
   const out = alert.outbound_amount ? (alert.outbound_held ? "On hold" : "Sent") : "None";
-  const html = `
-    <div class="row"><span>Your transfer out</span><b>${out}</b></div>
-    ${later.length ? `
-      <div class="row"><span>Since you paused</span><b>${gbp(later.reduce((t, x) => t + x.amount, 0))}</b></div>
-      <ul>${later.map((x) => `<li>+${gbp(x.amount)} <span>from ${esc(x.id)}</span></li>`).join("")}</ul>
-      <p class="note">Don't send any of this on. The bank is holding it while a specialist looks at your account.</p>` : ""}`;
+  const key = later.length + "|" + out;
   const prev = box.dataset.n;
-  if (prev === String(later.length) + "|" + out) return;
+  if (prev === key) return;
   const grew = prev !== undefined;
   const outChanged = grew && prev.split("|")[1] !== out;
-  box.dataset.n = String(later.length) + "|" + out;
-  box.innerHTML = html;
+  box.dataset.n = key;
+
+  const shown = later.slice(-3);
+  box.innerHTML = `
+    <div class="row"><span>Your answer</span><b>${esc((ANSWER_COPY[r.action] || {}).short || r.text)}</b></div>
+    <div class="row"><span>Your transfer out</span><b>${out}</b></div>
+    ${later.length ? `
+      <div class="ask">
+        <b>${later.length} more payment${later.length > 1 ? "s" : ""} arrived since you answered</b>
+        <ul>${later.length > shown.length ? `<li class="more">+ ${later.length - shown.length} earlier</li>` : ""}${shown.map((x) =>
+          `<li>+${gbp(x.amount)} <span>from ${esc(x.id)}</span></li>`).join("")}</ul>
+        <p>Does your answer still stand?</p>
+        <div class="mini">${Object.entries(ANSWER_COPY).map(([k, v]) =>
+          `<button data-act="${k}" class="${k === r.action ? "cur" : ""}">${k === r.action ? "Yes · " : ""}${v.short}</button>`).join("")}</div>
+      </div>` : `<p class="note">If more money arrives we'll check in with you again. Don't send any of it on.</p>`}`;
+  box.querySelectorAll("button[data-act]").forEach((b) =>
+    b.addEventListener("click", () => api("/api/student-action", { action: b.dataset.act }).then(poll)));
+
   const banner = $("wNew");
   if (grew && banner) {
     const msg = outChanged ? (out === "On hold" ? "Transfer put on hold" : "Money left your account") : "New payment received";
@@ -282,8 +306,9 @@ function renderAnalyst(alert) {
       <p>${esc(alert.explanation || "")}</p>
     </div>
 
-    ${alert.student_response ? `
-      <div class="response">📱 <b>${esc(alert.student_response.time)}</b> · ${esc(alert.student_response.text)}</div>` : ""}
+    ${(alert.student_responses || []).map((r) => `
+      <div class="response ${r.action}">📱 <b>${esc(r.time)}</b> · Student ${r.repeat ? (r.changed ? "changed their answer: " : "confirmed: ") : ""}${esc(r.text)}
+        <span>covers ${r.covers} payment${r.covers === 1 ? "" : "s"} received so far</span></div>`).join("")}
   `;
 }
 
