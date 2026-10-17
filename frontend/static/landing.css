@@ -115,6 +115,7 @@ h1 { font-family: var(--display); font-weight: 800; font-size: clamp(40px, 5.4vw
 .ok { margin-left: auto; font-style: normal; width: 20px; height: 20px; border-radius: 50%; background: var(--green); color: white; font-size: 11px; display: grid; place-items: center; }
 .spin { margin-left: auto; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid #a6c8ff; border-top-color: var(--blue); animation: rot .8s linear infinite; }
 @keyframes rot { to { transform: rotate(360deg); } }
+.step:not(.on) .spin { visibility: hidden; }
 .step.done .spin { animation: none; border: 0; background: var(--green); display: grid; place-items: center; }
 .step.done .spin::after { content: "\2713"; color: white; font-size: 11px; }
 
