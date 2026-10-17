@@ -8,3 +8,9 @@ Ideas parked so they don't distract from the MVP. Don't start any of these unles
 - Training on HI-Medium / HI-Large datasets
 - Fine-tuning the LLM
 - Use `HI-Small_Patterns.txt` (already in ~/shared) to name the laundering pattern in analyst explanations, e.g. "matches a fan-out pattern"
+
+
+## Stronger actions on the same scores (parked 17 Oct, 15:21)
+- **Friction before the outgoing transfer**: a "Has someone asked you to move this money?" check or a short delay. Needs its own cut-off and UI.
+- **Hold the outgoing transfer until reviewed**: shown in the StudentShield story, but not wired to the model. Only sensible at high precision; at today's 3-29% precision it would hold many innocent students.
+- **Freeze / report (SAR) / recall funds**: the bank's existing hard actions. Out of scope; our point is the soft, early step.
