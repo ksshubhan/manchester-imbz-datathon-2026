@@ -12,6 +12,8 @@ Endpoints
   GET  /                    demo page: analyst dashboard + student phone view
   POST /demo/start?rate=20  replay the test days inside the service (one-click demo)
   POST /demo/stop           stop the replay;  GET /demo/status  progress
+  GET  /cases               real fan-in/fan-out accounts from the test days (for StudentShield)
+  GET  /case/<account>      all payments into/out of one account;  GET /sample?n=200  background
 
 Run:  python app.py   (or in Docker, see service/README.md)
 Data: DATA_DIR env var, default /data, must contain models/ and thresholds.json
@@ -293,6 +295,75 @@ def demo_stop_route():
 @app.get('/demo/status')
 def demo_status():
     return jsonify(demo)
+
+
+# ---------- real cases from the test days (for the StudentShield story view) ----------
+_replay = None
+
+
+def replay_rows():
+    global _replay
+    if _replay is None:
+        with open(f'{DATA_DIR}/replay_sample.csv') as fh:
+            _replay = list(csv.DictReader(fh))
+    return _replay
+
+
+def quick_score(row):
+    """Score without counting it in /stats or /alerts (used only to rank cases)."""
+    x = np.array([[float(row[f]) for f in FEATURES]], dtype='float32')
+    return float(booster.predict(xgb.DMatrix(x, feature_names=FEATURES))[0])
+
+
+_cases = None
+
+
+@app.get('/cases')
+def get_cases():
+    """Accounts on the test days that received several laundering payments and then sent money on:
+    the fan-in then fast-out pattern. Ranked by how many incoming payments reached the student level."""
+    global _cases
+    if _cases is None:
+        rows = replay_rows()
+        inbound, outbound = {}, {}
+        for r in rows:
+            inbound.setdefault(r['receiver'], []).append(r)
+            outbound.setdefault(r['sender'], []).append(r)
+        found = []
+        for acct, ins in inbound.items():
+            laund = [r for r in ins if r['y'] == '1']
+            if len(laund) < 2:
+                continue
+            first_in = min(r['timestamp'] for r in ins)
+            outs = [r for r in outbound.get(acct, []) if r['timestamp'] >= first_in]
+            probs = [quick_score(r) for r in ins]
+            found.append({'account': acct, 'inbound': len(ins), 'inbound_laundering': len(laund),
+                          'outbound': len(outs),
+                          'student_level': sum(p >= thresholds['student_warning'] for p in probs),
+                          'analyst_level': sum(p >= thresholds['analyst_alert'] for p in probs),
+                          'max_probability': round(max(probs), 4)})
+        found.sort(key=lambda c: (-(c['outbound'] > 0), -c['student_level'], -c['analyst_level'],
+                                  -c['inbound_laundering']))
+        _cases = found
+    return jsonify(_cases[:int(request.args.get('limit', 10))])
+
+
+@app.get('/case/<path:acct>')
+def get_case(acct):
+    """Every replay payment into or out of one account, in time order (raw rows, not yet scored)."""
+    rows = [r for r in replay_rows() if r['receiver'] == acct or r['sender'] == acct]
+    rows.sort(key=lambda r: r['timestamp'])
+    return jsonify(rows)
+
+
+@app.get('/sample')
+def get_sample():
+    """Random normal payments from the test days, used as background traffic in the story view."""
+    import random
+    start, end = request.args.get('start', ''), request.args.get('end', '~')
+    normal = [r for r in replay_rows() if r['y'] == '0' and start <= r['timestamp'] <= end]
+    rows = random.sample(normal, min(int(request.args.get('n', 200)), len(normal)))
+    return jsonify(sorted(rows, key=lambda r: r['timestamp']))
 
 
 if __name__ == '__main__':

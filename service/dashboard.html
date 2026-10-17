@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mule Early Warning</title>
+<title>StudentShield · Test-day replay</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{
@@ -70,7 +70,7 @@ tr.sel{background:#edf5ff !important}
 </head>
 <body>
 <header>
-  <h1>Mule Early Warning</h1>
+  <h1>StudentShield · full test-day replay</h1>
   <span class="badge" id="machine">connecting…</span>
   <span class="badge" id="demoState">idle</span>
   <div class="controls">
@@ -87,8 +87,8 @@ tr.sel{background:#edf5ff !important}
 <main>
   <section class="stats">
     <div class="stat blue"><div class="v" id="sScored">0</div><div class="l">Payments scored in real time</div></div>
-    <div class="stat amber"><div class="v" id="sAnalyst">0</div><div class="l">Analyst alerts (top 1% risk)</div></div>
-    <div class="stat red"><div class="v" id="sStudent">0</div><div class="l">Student warnings (top 0.1% risk)</div></div>
+    <div class="stat amber"><div class="v" id="sAnalyst">0</div><div class="l">Analyst alerts (F2 cut-off)</div></div>
+    <div class="stat red"><div class="v" id="sStudent">0</div><div class="l">Student warnings (F0.5 cut-off)</div></div>
     <div class="stat green"><div class="v" id="sCaught">0 / 0</div><div class="l">Mule payments caught before moving on</div></div>
     <div class="stat"><div class="v" id="sLatency">–</div><div class="l">Average time to score a payment</div></div>
   </section>
