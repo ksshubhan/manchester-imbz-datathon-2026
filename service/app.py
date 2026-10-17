@@ -9,6 +9,9 @@ Endpoints
   GET  /explain/<id>        LLM-written student warning + analyst note for one alert
   GET  /stats               running totals for the dashboard header
   POST /reset               clear alerts and totals (between demo runs)
+  GET  /                    demo page: analyst dashboard + student phone view
+  POST /demo/start?rate=20  replay the test days inside the service (one-click demo)
+  POST /demo/stop           stop the replay;  GET /demo/status  progress
 
 Run:  python app.py   (or in Docker, see service/README.md)
 Data: DATA_DIR env var, default /data, must contain models/ and thresholds.json
@@ -26,7 +29,9 @@ from collections import deque
 
 import numpy as np
 import xgboost as xgb
-from flask import Flask, jsonify, request
+import csv
+
+from flask import Flask, jsonify, request, send_file
 
 DATA_DIR = os.environ.get('DATA_DIR', '/data')
 LLM_URL = os.environ.get('LLM_URL', '')
@@ -56,16 +61,15 @@ def reason_text(feat, v, p):
     """One plain sentence per feature, or None when the fact isn't useful to a human
     (e.g. "quiet in the last hour"), so the next strongest reason is shown instead."""
     fmt = p.get('payment_format_name', 'unknown method')
-    times = lambda k: 'once' if k == 1 else f'{k} times'
+    pl = lambda k, word: f'{k} {word}' if k == 1 else f'{k} {word}s'
     texts = {
-        'payment_format': ('paid by ACH bank transfer, the method used in most laundering' if fmt == 'ACH'
-                           else f'paid by {fmt}'),
+        # ACH is on nearly every alert, so it is shown as its own field, not as a reason
+        'payment_format': None if fmt == 'ACH' else f'paid by {fmt}',
         'new_pair': 'first ever payment from this sender to this account' if v else None,
-        'pair_prior_cnt': ('first ever payment from this sender to this account' if n(v) == 0
-                           else f'sender has paid this account {times(n(v))} before'),
+        'pair_prior_cnt': 'first ever payment from this sender to this account' if n(v) == 0 else None,
         'log_amount': f'payment of {float(np.expm1(v)):,.0f}',
         'cross_currency': 'payment was converted between currencies' if v else None,
-        'cross_bank': 'sent from a different bank' if v else None,
+        'cross_bank': None,   # most payments cross banks, so this says little
         'payment_currency': 'paid in a currency linked to higher laundering rates',
         'hour': None,
         'r_age_h': f'receiving account first seen only {float(v):.0f} hours ago' if v < 48 else None,
@@ -73,7 +77,7 @@ def reason_text(feat, v, p):
         'r_in_cnt_24h': f'{n(v)} other payments arrived in the last 24 hours' if n(v) >= 3 else None,
         'r_in_cnt_1h': f'{n(v)} other payments arrived in the last hour' if n(v) >= 2 else None,
         'r_out_cnt_all': None,
-        'r_out_cnt_24h': f'account sent {n(v)} payments out in the last 24 hours' if n(v) >= 1 else None,
+        'r_out_cnt_24h': f'account sent {pl(n(v), "payment")} out in the last 24 hours' if n(v) >= 1 else None,
         'r_distinct_senders': f'account has been paid by {n(v)} different senders' if n(v) >= 3 else None,
         'r_new_senders_24h': f'account was paid by {n(v)} new senders in the last 24 hours' if n(v) >= 2 else None,
         'amt_vs_r_avg': ('first incoming payment we have seen for this account' if v < 0
@@ -83,7 +87,7 @@ def reason_text(feat, v, p):
         's_age_h': f'sender first seen only {float(v):.0f} hours ago' if v < 48 else None,
         's_out_cnt_all': 'sender has never made a payment before' if n(v) == 0 else None,
         's_out_cnt_24h': f'sender made {n(v)} payments in the last 24 hours' if n(v) >= 3 else None,
-        's_in_cnt_24h': (f'sender itself received {n(v)} payments in the last 24 hours (money passing through)'
+        's_in_cnt_24h': (f'sender itself received {pl(n(v), "payment")} in the last 24 hours (money passing through)'
                          if n(v) >= 1 else None),
         's_distinct_receivers': f'sender has paid {n(v)} different accounts' if n(v) >= 3 else None,
         's_new_receivers_24h': f'sender paid {n(v)} new accounts in the last 24 hours' if n(v) >= 2 else None,
@@ -155,11 +159,19 @@ def health():
                    llm='on' if LLM_URL else 'templates')
 
 
+@app.get('/')
+def dashboard():
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dashboard.html'))
+
+
 @app.route('/score', methods=['POST', 'OPTIONS'])
 def score():
     if request.method == 'OPTIONS':
         return ('', 204)
-    p = request.get_json(force=True)
+    return jsonify(score_payment(request.get_json(force=True)))
+
+
+def score_payment(p):
     t0 = time.perf_counter()
     x = np.array([[float(p[f]) for f in FEATURES]], dtype='float32')
     prob = float(booster.predict(xgb.DMatrix(x, feature_names=FEATURES))[0])
@@ -191,14 +203,16 @@ def score():
             alert['student_message'], alert['analyst_message'] = template_messages(alert)
             alerts.appendleft(alert)
             result['alert_id'] = alert['id']
-    return jsonify(result)
+    return result
 
 
 @app.get('/alerts')
 def get_alerts():
     limit = int(request.args.get('limit', 50))
+    level = request.args.get('level')          # e.g. ?level=student for the phone view
     with lock:
-        return jsonify(list(itertools.islice(alerts, limit)))
+        chosen = (x for x in alerts if level is None or x['level'] == level)
+        return jsonify(list(itertools.islice(chosen, limit)))
 
 
 @app.get('/explain/<int:alert_id>')
@@ -235,6 +249,50 @@ def reset():
         for k in stats:
             stats[k] = 0.0 if k == 'total_ms' else 0
     return jsonify(status='reset')
+
+
+# ---------- one-click demo: replay the test days inside the service ----------
+demo = {'running': False, 'sent': 0, 'rate': 0}
+demo_stop = threading.Event()
+
+
+def run_demo(rate):
+    gap = 1.0 / rate if rate > 0 else 0
+    try:
+        with open(f'{DATA_DIR}/replay_sample.csv') as fh:
+            for row in csv.DictReader(fh):
+                if demo_stop.is_set():
+                    break
+                score_payment(row)
+                demo['sent'] += 1
+                if gap:
+                    time.sleep(gap)
+    finally:
+        demo['running'] = False
+
+
+@app.post('/demo/start')
+def demo_start():
+    if demo['running']:
+        return jsonify(status='already running', **demo)
+    rate = float(request.args.get('rate', 20))
+    if request.args.get('reset', '1') == '1':
+        reset()
+    demo_stop.clear()
+    demo.update(running=True, sent=0, rate=rate)
+    threading.Thread(target=run_demo, args=(rate,), daemon=True).start()
+    return jsonify(status='started', **demo)
+
+
+@app.post('/demo/stop')
+def demo_stop_route():
+    demo_stop.set()
+    return jsonify(status='stopping', **demo)
+
+
+@app.get('/demo/status')
+def demo_status():
+    return jsonify(demo)
 
 
 if __name__ == '__main__':
