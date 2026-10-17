@@ -7,3 +7,4 @@ Ideas parked so they don't distract from the MVP. Don't start any of these unles
 - Real mobile app or bank integration
 - Training on HI-Medium / HI-Large datasets
 - Fine-tuning the LLM
+- Use `HI-Small_Patterns.txt` (already in ~/shared) to name the laundering pattern in analyst explanations, e.g. "matches a fan-out pattern"
