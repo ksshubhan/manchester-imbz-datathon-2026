@@ -69,7 +69,7 @@ function renderPhone(alert, simTime, simDate) {
     return;
   }
   if (mode === phoneMode) {
-    if (mode === "warn") updateWarnFacts(alert);
+    if (mode === "warn") updateWarnFacts(alert, simTime);
     return;
   }
   phoneMode = mode;
@@ -91,6 +91,7 @@ function renderPhone(alert, simTime, simDate) {
     const f = alert.features;
     screen.innerHTML = `
       <div class="warn">
+        <div class="warn-new" id="wNew"></div>
         <div class="shield">🛡️</div>
         <h3>Has someone asked you to move this money?</h3>
         <p><span id="wTotal">${gbp(f.total_in)}</span> arrived from <b><span id="wSenders">${f.unique_senders}</span> different ${f.unique_senders === 1 ? "person" : "people"}</b> in a short time.
@@ -121,12 +122,31 @@ function renderPhone(alert, simTime, simDate) {
   }
 }
 
-function updateWarnFacts(alert) {
+function updateWarnFacts(alert, simTime) {
+  // The warning stays up while more money arrives; make each change visible so the screen never looks frozen.
   const f = alert.features;
-  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  const out = alert.outbound_amount ? (alert.outbound_held ? "On hold" : "Sent") : "None yet";
+  let changed = false;
+  const set = (id, v) => {
+    const el = $(id);
+    if (!el || el.textContent === String(v)) return;
+    el.textContent = v;
+    el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");   // restart the flash
+    changed = true;
+  };
+  const outBefore = $("wOut") ? $("wOut").textContent : out;
   set("wTotal", gbp(f.total_in)); set("wTotal2", gbp(f.total_in));
   set("wSenders", f.unique_senders); set("wSenders2", f.unique_senders);
-  set("wOut", alert.outbound_amount ? (alert.outbound_held ? "On hold" : "Sent") : "None yet");
+  set("wOut", out);
+  if (!changed) return;
+  const msg = out !== outBefore && out === "On hold" ? "Transfer put on hold"
+            : out !== outBefore && out === "Sent" ? "Money left your account"
+            : "New payment received";
+  const banner = $("wNew");
+  if (banner) {
+    banner.textContent = `${msg} · ${String(simTime || "").slice(0, 5)}`;
+    banner.classList.remove("show"); void banner.offsetWidth; banner.classList.add("show");
+  }
 }
 
 // ---------------- right panel: analyst ----------------
