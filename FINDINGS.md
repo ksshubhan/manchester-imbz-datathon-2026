@@ -277,6 +277,7 @@ Payment format dominates overall, but the ACH-only check above shows the behavio
 *Why:* on its own it scored no better than random (1.1% recall), and every blend with XGBoost made validation worse (77.7% → 63.8% at weight 0.05 → 18.5% at 0.3). The weight was chosen on validation only, so this is a fair decision, not cherry-picking.
 *Why it failed, and why that's a useful finding:* mule payments don't look *statistically unusual*. They're often ordinary-sized ACH transfers. Anomaly detection flags the extremes (huge amounts, very busy accounts), which are mostly legitimate. **Mules hide in plain sight, so you need models that learn the specific laundering pattern.** That's a good line for the pitch.
 *Effect on the "multi-model" requirement:* our multi-model system becomes **predictive (XGBoost) + generative (LLM explanations)**, which is exactly the second lab's pattern. We report the Isolation Forest result honestly rather than hide it.
+*Code removed (18 Oct):* the Isolation Forest training and blend were deleted from notebook 03 as dead code. The live service never loaded it (it only uses `mule_xgb.json`), so no numbers change; the result above stays as the record of the experiment.
 
 **2. Validation scored higher than test (77.7% vs 59.3% recall).**
 *Why it happens:* patterns drift over time, so a model is always a bit worse on later days. This is expected, and it's exactly why we keep a separate, untouched test set. **We quote the test number (59.3%), never the validation number.**
