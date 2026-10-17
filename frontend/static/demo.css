@@ -281,3 +281,11 @@ a.btn { text-decoration: none; }
 .since .ask.quiet { background: #fff; border-color: #e3e6ef; }
 .since .askn { font-weight: 400; color: #6f7687; font-size: 11px; }
 .response.final { box-shadow: inset 4px 0 0 currentColor; font-weight: 600; }
+
+/* demo pause while a question is open on the phone */
+.wait { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45;
+  background: rgba(69, 137, 255, .12); border: 1px solid rgba(69, 137, 255, .45); color: #d0e2ff; animation: fadein .3s; }
+.wait b { display: block; color: #fff; }
+.wait span { display: block; color: #a6c8ff; }
+.live-dot.paused { color: #a6c8ff; }
+.live-dot.paused::before { background: #78a9ff; animation: none; }
