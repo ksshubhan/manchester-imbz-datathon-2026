@@ -6,7 +6,8 @@ const $ = (id) => document.getElementById(id);
 let seenRows = new Set();
 let lastFeedHtml = "";
 let lastAlertJson = null;
-let phoneMode = null;   // "idle" | "notif" | "warn" | "done"
+let phoneMode = null;
+let pausedAt = 0;        // inbound payments received before the student paused   // "idle" | "notif" | "warn" | "done"
 let latest = null;
 
 // Amounts are in each payment's own currency (the IBM dataset mixes currencies), so no £ sign.
@@ -70,6 +71,7 @@ function renderPhone(alert, simTime, simDate) {
   }
   if (mode === phoneMode) {
     if (mode === "warn") updateWarnFacts(alert, simTime);
+    if (mode === "done") updateDone(alert, simTime);
     return;
   }
   phoneMode = mode;
@@ -118,7 +120,11 @@ function renderPhone(alert, simTime, simDate) {
         <h3>Thanks. Your transfer is paused.</h3>
         <p>Nothing leaves your account until a specialist has spoken to you.
         You did the right thing by stopping.</p>
-      </div>`;
+        <div class="since" id="dSince"></div>
+      </div>
+      <div class="warn-new" id="wNew"></div>`;
+    pausedAt = alert.senders.length;
+    updateDone(alert, simTime);
   }
 }
 
@@ -144,6 +150,32 @@ function updateWarnFacts(alert, simTime) {
             : "New payment received";
   const banner = $("wNew");
   if (banner) {
+    banner.textContent = `${msg} · ${String(simTime || "").slice(0, 5)}`;
+    banner.classList.remove("show"); void banner.offsetWidth; banner.classList.add("show");
+  }
+}
+
+// After the student pauses, money can keep arriving: list it on the paused screen so the phone stays live.
+function updateDone(alert, simTime) {
+  const box = $("dSince");
+  if (!box) return;
+  const later = alert.senders.slice(pausedAt);
+  const out = alert.outbound_amount ? (alert.outbound_held ? "On hold" : "Sent") : "None";
+  const html = `
+    <div class="row"><span>Your transfer out</span><b>${out}</b></div>
+    ${later.length ? `
+      <div class="row"><span>Since you paused</span><b>${gbp(later.reduce((t, x) => t + x.amount, 0))}</b></div>
+      <ul>${later.map((x) => `<li>+${gbp(x.amount)} <span>from ${esc(x.id)}</span></li>`).join("")}</ul>
+      <p class="note">Don't send any of this on. The bank is holding it while a specialist looks at your account.</p>` : ""}`;
+  const prev = box.dataset.n;
+  if (prev === String(later.length) + "|" + out) return;
+  const grew = prev !== undefined;
+  const outChanged = grew && prev.split("|")[1] !== out;
+  box.dataset.n = String(later.length) + "|" + out;
+  box.innerHTML = html;
+  const banner = $("wNew");
+  if (grew && banner) {
+    const msg = outChanged ? (out === "On hold" ? "Transfer put on hold" : "Money left your account") : "New payment received";
     banner.textContent = `${msg} · ${String(simTime || "").slice(0, 5)}`;
     banner.classList.remove("show"); void banner.offsetWidth; banner.classList.add("show");
   }

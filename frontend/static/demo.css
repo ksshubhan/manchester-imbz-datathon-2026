@@ -179,7 +179,7 @@ a.btn { text-decoration: none; }
 .warn button.main { background: #0f62fe; border-color: #0f62fe; color: white; }
 .warn .help { font-size: 11px; color: #6a7390; text-align: center; margin-top: 6px; }
 
-.done { padding: 90px 20px; text-align: center; background: #f6f7fb; color: #161b29; height: 100%; animation: fadein .35s; }
+.done { padding: 56px 18px 16px; text-align: center; background: #f6f7fb; color: #161b29; height: 100%; animation: fadein .35s; }
 .done .tick { width: 60px; height: 60px; border-radius: 50%; background: #defbe6; color: #198038; display: grid; place-items: center; margin: 0 auto 14px; font-size: 28px; }
 .done h3 { font-size: 17px; margin-bottom: 8px; }
 .done p { font-size: 13px; color: #3d4560; line-height: 1.45; }
@@ -243,3 +243,13 @@ a.btn { text-decoration: none; }
 @keyframes warnnew { 0% { opacity: 0; transform: translateY(-6px); } 10%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 .bump { animation: bump 1.4s ease-out; border-radius: 4px; }
 @keyframes bump { 0%, 30% { background: rgba(250, 77, 86, .25); } 100% { background: transparent; } }
+
+/* paused screen: money that keeps arriving after the student pressed pause */
+.done { position: relative; }
+.screen { position: relative; }
+.since { margin-top: 14px; width: 100%; text-align: left; font-size: 12px; }
+.since .row { display: flex; justify-content: space-between; padding: 6px 10px; background: #fff; border: 1px solid #e3e6ef; border-radius: 8px; margin-bottom: 6px; }
+.since ul { list-style: none; max-height: 120px; overflow: hidden; margin: 2px 0 6px; }
+.since li { padding: 3px 10px; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: #a2191f; animation: fadein .4s; }
+.since li span { color: #6f7687; font-size: 10.5px; }
+.since .note { font-size: 11px; color: #525a6e; line-height: 1.4; padding: 0 4px; }
