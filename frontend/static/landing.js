@@ -9,12 +9,15 @@ onScroll();
 // Hero pipeline: light up each step in turn, then loop
 const steps = [...document.querySelectorAll("#pipeline .step")];
 let active = 0;
+// Each step spins while it is "working", turns into a tick once the next one starts,
+// and the final frame (all four ticked) is held a little longer before looping.
 function tickPipeline() {
   steps.forEach((s, i) => { s.classList.toggle("on", i <= active); s.classList.toggle("done", i < active); });
-  active = active >= steps.length ? 0 : active + 1;
+  const allDone = active >= steps.length;
+  active = allDone ? 0 : active + 1;
+  setTimeout(tickPipeline, allDone ? 2600 : 1300);
 }
 tickPipeline();
-setInterval(tickPipeline, 1300);
 
 // Count-up numbers when the stats scroll into view
 function countUp(el) {
