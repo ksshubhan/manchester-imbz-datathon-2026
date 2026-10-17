@@ -53,41 +53,40 @@ def n(v):
 
 
 def reason_text(feat, v, p):
-    """One plain sentence per feature. Wording describes the fact, not a verdict."""
+    """One plain sentence per feature, or None when the fact isn't useful to a human
+    (e.g. "quiet in the last hour"), so the next strongest reason is shown instead."""
     fmt = p.get('payment_format_name', 'unknown method')
+    times = lambda k: 'once' if k == 1 else f'{k} times'
     texts = {
-        'payment_format': (f'sent by bank transfer (ACH), the method behind most laundering in our data'
-                           if fmt == 'ACH' else f'sent by {fmt}'),
+        'payment_format': ('paid by ACH bank transfer, the method used in most laundering' if fmt == 'ACH'
+                           else f'paid by {fmt}'),
         'new_pair': 'first ever payment from this sender to this account' if v else None,
         'pair_prior_cnt': ('first ever payment from this sender to this account' if n(v) == 0
-                           else f'sender has paid this account {n(v)} times before'),
+                           else f'sender has paid this account {times(n(v))} before'),
         'log_amount': f'payment of {float(np.expm1(v)):,.0f}',
         'cross_currency': 'payment was converted between currencies' if v else None,
-        'cross_bank': 'sent from a different bank' if v else 'sent within the same bank',
+        'cross_bank': 'sent from a different bank' if v else None,
         'payment_currency': 'paid in a currency linked to higher laundering rates',
-        'hour': f'sent at {n(v):02d}:00',
-        'r_age_h': f'receiving account first seen only {float(v):.0f} hours ago' if v < 48
-                   else f'receiving account first seen {float(v) / 24:.0f} days ago',
-        'r_in_cnt_all': ('first payment this account has ever received' if n(v) == 0
-                         else f'account has received {n(v)} payments in total'),
-        'r_in_cnt_24h': ('no other money arrived in the last 24 hours' if n(v) == 0
-                         else f'{n(v)} other payments arrived in the last 24 hours'),
-        'r_in_cnt_1h': ('account was otherwise quiet in the last hour' if n(v) == 0
-                        else f'{n(v)} other payments arrived in the last hour'),
-        'r_out_cnt_all': ('account has never sent money out' if n(v) == 0
-                          else f'account has sent {n(v)} payments out in total'),
-        'r_out_cnt_24h': f'account sent {n(v)} payments out in the last 24 hours',
-        'r_distinct_senders': f'account has been paid by {n(v)} different senders',
-        'r_new_senders_24h': f'account was paid by {n(v)} new senders in the last 24 hours',
+        'hour': None,
+        'r_age_h': f'receiving account first seen only {float(v):.0f} hours ago' if v < 48 else None,
+        'r_in_cnt_all': 'first payment this account has ever received' if n(v) == 0 else None,
+        'r_in_cnt_24h': f'{n(v)} other payments arrived in the last 24 hours' if n(v) >= 3 else None,
+        'r_in_cnt_1h': f'{n(v)} other payments arrived in the last hour' if n(v) >= 2 else None,
+        'r_out_cnt_all': None,
+        'r_out_cnt_24h': f'account sent {n(v)} payments out in the last 24 hours' if n(v) >= 1 else None,
+        'r_distinct_senders': f'account has been paid by {n(v)} different senders' if n(v) >= 3 else None,
+        'r_new_senders_24h': f'account was paid by {n(v)} new senders in the last 24 hours' if n(v) >= 2 else None,
         'amt_vs_r_avg': ('first incoming payment we have seen for this account' if v < 0
-                         else f'{float(v):.1f}x this account\'s usual incoming amount'),
-        'r_passthrough_24h': f'{float(v):.0%} of money received in the last 24 hours has already been sent on',
-        's_age_h': f'sender first seen {float(v):.0f} hours ago',
-        's_out_cnt_all': f'sender has made {n(v)} payments in total',
-        's_out_cnt_24h': f'sender made {n(v)} payments in the last 24 hours',
-        's_in_cnt_24h': f'sender itself received {n(v)} payments in the last 24 hours (money passing through)',
-        's_distinct_receivers': f'sender has paid {n(v)} different accounts',
-        's_new_receivers_24h': f'sender paid {n(v)} new accounts in the last 24 hours',
+                         else f'{float(v):.1f}x this account\'s usual incoming amount' if v >= 2 else None),
+        'r_passthrough_24h': (f'{float(v):.0%} of money received in the last 24 hours has already been sent on'
+                              if v >= 0.5 else None),
+        's_age_h': f'sender first seen only {float(v):.0f} hours ago' if v < 48 else None,
+        's_out_cnt_all': 'sender has never made a payment before' if n(v) == 0 else None,
+        's_out_cnt_24h': f'sender made {n(v)} payments in the last 24 hours' if n(v) >= 3 else None,
+        's_in_cnt_24h': (f'sender itself received {n(v)} payments in the last 24 hours (money passing through)'
+                         if n(v) >= 1 else None),
+        's_distinct_receivers': f'sender has paid {n(v)} different accounts' if n(v) >= 3 else None,
+        's_new_receivers_24h': f'sender paid {n(v)} new accounts in the last 24 hours' if n(v) >= 2 else None,
     }
     return texts.get(feat)
 
