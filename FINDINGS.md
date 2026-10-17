@@ -231,8 +231,10 @@ Payments with the most points are flagged first, with payment size as a tie-brea
 ---
 
 ## Results log
+Test days: 9–10 Sep. Base rate (random guessing) = 0.11% laundering, so random scores about 1% recall@1% and 0.001 PR-AUC.
+
 | Model | Test recall@1% | Test precision@1% | Test PR-AUC |
 |---|---|---|---|
-| Rules baseline | _to fill_ | _to fill_ | _to fill_ |
+| Rules baseline | **25.5%** | 2.9% | 0.022 |
 | XGBoost | _to fill_ | _to fill_ | _to fill_ |
 | XGBoost + Isolation Forest | _to fill_ | _to fill_ | _to fill_ |
