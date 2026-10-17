@@ -128,6 +128,77 @@ ACH (bank-to-bank transfers) is 12% of payments but carries **87% of laundering*
 
 ---
 
+## Phase 2: features and rules baseline (`notebooks/02_features_and_baseline.ipynb`)
+
+**Goal:** turn raw transactions into numbers a model can learn from, and set the score the model has to beat.
+
+**Steps**
+1. Load the cleaned data from notebook 01.
+2. Remove self-transfers and everything after 10 Sep (decisions 1–2). That leaves about 4.5M payments.
+3. Build **24 point-in-time features** for every incoming payment (decision 3).
+4. Split by date: warm-up, train, validation, test (decision 4).
+5. Score the **rules baseline** on the test days (decision 7).
+6. Save `features.pkl` for Phase 3.
+
+### The 24 features
+
+All of them use **only transactions before the payment**.
+
+**About the payment (8)**
+
+| Feature | Meaning |
+|---|---|
+| `log_amount` | How big the payment is, on a log scale so huge amounts don't dominate |
+| `payment_format` | ACH, cheque, card, cash, Bitcoin, wire or reinvestment |
+| `payment_currency` | Which currency it was paid in |
+| `cross_currency` | Was it converted between currencies? |
+| `cross_bank` | Did it move between two different banks? |
+| `hour` | Hour of day it was sent |
+| `new_pair` | Is this the **first ever** payment between these two accounts? |
+| `pair_prior_cnt` | How many times this sender has paid this receiver before |
+
+**About the receiver, the possible mule (10)**
+
+| Feature | Meaning |
+|---|---|
+| `r_age_h` | Hours since this account was first seen. New accounts are suspicious |
+| `r_in_cnt_all` | Total payments it has ever received |
+| `r_in_cnt_24h` | Payments received in the last 24 hours |
+| `r_in_cnt_1h` | Payments received in the last hour |
+| `r_out_cnt_all` | Total payments it has ever sent |
+| `r_out_cnt_24h` | Payments it sent out in the last 24 hours |
+| `r_distinct_senders` | How many different people have ever paid it |
+| `r_new_senders_24h` | **New** senders in the last 24h (**fan-in**: a mule suddenly gets money from strangers) |
+| `amt_vs_r_avg` | This payment compared with the account's usual incoming amount (e.g. 10x normal) |
+| `r_passthrough_24h` | Share of the last 24h's incoming money already sent back out (**pass-through**: mules forward money fast) |
+
+**About the sender, the possible recruiter (6)**
+
+| Feature | Meaning |
+|---|---|
+| `s_age_h` | Hours since the sender was first seen |
+| `s_out_cnt_all` | Total payments the sender has ever made |
+| `s_out_cnt_24h` | Payments the sender made in the last 24 hours |
+| `s_in_cnt_24h` | Payments the sender **received** in the last 24h (money flowing *through* the sender too) |
+| `s_distinct_receivers` | How many different accounts the sender has ever paid |
+| `s_new_receivers_24h` | **New** accounts paid in the last 24h (**fan-out**: a recruiter spraying money to several mules) |
+
+**How it's computed fast:** a helper called `window_stats` sorts payments by (account, time) and uses binary search to count, for example, "payments this account received in the 24h before this one". It does this for all 4.5M payments in about a minute instead of hours. Payments in the same minute are excluded, so nothing leaks.
+
+### The rules baseline
+
+A simple checklist like a bank might hand-write. Each payment gets **one point per red flag** (0–5):
+
+1. Paid by **ACH**, the format carrying 87% of laundering
+2. **First ever payment** between these two accounts
+3. Sender has paid **3+ new accounts** in the last 24h (fan-out)
+4. Receiver has been paid by **2+ new senders** in the last 24h (fan-in)
+5. Receiving account is **less than 24 hours old**
+
+Payments with the most points are flagged first, with payment size as a tie-breaker. We measure how much laundering lands in the **top 1%**. That's the number Phase 3 must beat. The model learns its own combination and thresholds from all 24 features instead of 5 fixed rules.
+
+---
+
 ## Phase 3 plan: the model, and why
 
 ### XGBoost as the main model
