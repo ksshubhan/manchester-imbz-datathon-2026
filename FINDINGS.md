@@ -287,3 +287,20 @@ Payment format dominates overall, but the ACH-only check above shows the behavio
 
 **4. Explanation wording needs a tidy-up before the LLM uses it.**
 Top reasons like "0 earlier payments between these two accounts" or "receiving account got 0 payments in the last hour" are correct but read awkwardly. Fix the wording in the scoring service (e.g. "these two accounts have never transacted before").
+
+---
+
+## Phase 4: alert levels (`service/export_for_service.py`)
+
+Thresholds were **set on validation days** (top 1% and top 0.1% of validation scores), then **measured on the untouched test days**:
+
+| Level | Who sees it | Test payments flagged | Laundering caught | Alerts that are real |
+|---|---|---|---|---|
+| Analyst alert | Bank fraud team | 2.57% | **75.2%** | 3.3% (1 in 30) |
+| **Student warning** | Analyst **and** the account holder | **0.13%** (1 in ~770 payments) | **34.3%** | **28.9% (about 1 in 3.5)** |
+
+**Why two levels:** analysts can handle many false alarms, so they get a wide net that catches three quarters of laundering. A student should only be warned when we're fairly sure, so warnings go out for 1 in 770 payments, and about 1 in 3.5 of those really is mule activity. That still catches a third of all laundering **before the money is sent on**.
+
+**Why the analyst level flags 2.57% instead of 1%:** the cut-off was fixed on validation days, and scores on the test days run a little higher (the same drift seen in Phase 3). We keep the validation-set threshold rather than re-tune on test, which would be cheating. In a real bank the threshold would be recalibrated regularly.
+
+**Pitch line:** *"We warn about 1 in 770 payments, and nearly 1 in 3 of those warnings is a real mule payment, caught before the money moves on."*
