@@ -22,6 +22,8 @@ button,select{font:inherit;border:0;border-radius:4px;padding:7px 14px;cursor:po
 .btn-primary{background:var(--blue);color:#fff}
 .btn-ghost{background:#393939;color:#fff}
 select{background:#393939;color:#fff}
+a.nav{text-decoration:none;border-radius:4px;padding:7px 14px}
+a.nav:hover{background:#4c4c4c}
 main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px 24px;max-width:1500px;margin:0 auto}
 .stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
 .stat{background:var(--panel);padding:14px 16px;border-top:3px solid var(--line)}
@@ -102,6 +104,8 @@ td.mono{white-space:nowrap}
     </select>
     <button class="btn-primary" id="start">▶ Start live demo</button>
     <button class="btn-ghost" id="stop">Stop</button>
+    <a class="btn-ghost nav" href="/demo">← Back to demo</a>
+    <a class="btn-ghost nav" href="/">Home</a>
   </div>
 </header>
 
