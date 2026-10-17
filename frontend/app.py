@@ -116,6 +116,8 @@ def fresh_state():
         "explanation": None,
         "explain_source": None,
         "student_responses": [],     # every answer the student gives, newest last
+        "paused_at": None,           # demo pause: wall-clock time the stream stopped for a phone question
+        "paused_total": 0.0,         # seconds the stream has spent paused so far
         "clock": None,
         "error": None,
     }
@@ -149,8 +151,40 @@ def load_case():
     S["case"], S["events"] = case, events
 
 
+def awaiting_answer():
+    """Is a question open on the student's phone? (same conditions the phone uses to show it)
+    - first warning: the account reached the student level and no answer yet (rule 3)
+    - re-ask: new FLAGGED money since the last answer, and asking has not stopped (rules 4 and 8)"""
+    if S["best"] is None or S["best"]["level"] != "student":
+        return False
+    rs = S["student_responses"]
+    if not rs:
+        return True
+    if rs[-1]["final"]:
+        return False
+    return any(res["level"] != "none" for _, res in S["inbound"][rs[-1]["covers"]:])
+
+
+def next_gap():
+    """Real time between the latest case payment shown and the next one (the demo compresses hours into seconds)."""
+    if S["ev_i"] == 0 or S["ev_i"] >= len(S["events"]):
+        return None
+    mins = (parse_ts(S["events"][S["ev_i"]]["timestamp"]) - parse_ts(S["events"][S["ev_i"] - 1]["timestamp"])).total_seconds() / 60
+    return span_text(mins) if mins >= 1 else None
+
+
 def advance():
-    real = time.time() - S["t0"]
+    now = time.time()
+    # Demo pause: the stream waits while a question is open on the phone. In real time the student had hours
+    # before the next payment; the demo compresses that to ~1.6 s, so it waits for the answer instead.
+    if awaiting_answer():
+        if S["paused_at"] is None:
+            S["paused_at"] = now
+        return
+    if S["paused_at"] is not None:
+        S["paused_total"] += now - S["paused_at"]
+        S["paused_at"] = None
+    real = now - S["t0"] - S["paused_total"]
 
     # Pick the real case first, so the background traffic can come from the same hours
     if S["case"] is None:
@@ -184,7 +218,7 @@ def advance():
     # The real case, one payment at a time
     if S["scenario_start"] is None:
         return
-    since = time.time() - S["scenario_start"]
+    since = now - S["scenario_start"] - S["paused_total"]   # pauses only happen after the case starts
     acct = S["case"]["account"]
     while S["ev_i"] < len(S["events"]) and since >= S["ev_i"] * STEP_SECONDS:
         # catch background traffic up to this payment's time, so the stream stays in time order
@@ -363,6 +397,7 @@ def state():
             "accounts": tiles,
             "alert": alert,
             "error": S["error"],
+            "waiting": {"active": S["paused_at"] is not None, "next_gap": next_gap()},
             "platform": {"arch": platform.machine(), "host": platform.node()},
         })
 
