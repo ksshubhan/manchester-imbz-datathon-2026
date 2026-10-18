@@ -113,7 +113,18 @@ Details: [service/README.md](service/README.md), [frontend/README.md](frontend/R
 
 ## Screenshots
 
-_In docs/screenshots/ (to add): LinuxONE dashboard, `uname -m` + `docker ps`, `/health`, notebook 03 training on s390x, /demo, /live._
+All taken on 18 Oct 2026 from the live system on LinuxONE (files in [docs/screenshots/](docs/screenshots/)).
+
+| | |
+|---|---|
+| LinuxONE Community Cloud: the HulmeAI VM, active, 148.100.108.113 | ![](docs/screenshots/01_linuxone_dashboard.png) |
+| `/health` from the live service: `machine: s390x`, 25 features, both cut-offs | ![](docs/screenshots/02_health.png) |
+| Notebook 03: XGBoost trained on s390x in 19.0 s, validation recall@1% 0.779 | ![](docs/screenshots/03_notebook03_training.png) |
+| `/demo`: real test-day case reaches the student level; phone asks the question | ![](docs/screenshots/05_demo_student_warning.png) |
+| `/demo`: new flagged payment, student re-asked | ![](docs/screenshots/06_demo_reask.png) |
+| `/demo`: student warned 19 h 17 min before the money moved out; outbound transfer held | ![](docs/screenshots/07_demo_held_19h.png) |
+| `/live`: full test-day replay on LinuxONE, 0.55 ms average per payment | ![](docs/screenshots/08_live_replay.png) |
+| `/live`: after "Someone asked me to move it", a specialist takes over | ![](docs/screenshots/09_live_specialist.png) |
 
 ## Ethics and limitations
 
