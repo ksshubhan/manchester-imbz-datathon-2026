@@ -34,11 +34,11 @@ FEATURES = config['features']
 #    who pays for a mistake (see FINDINGS.md, "Alert levels"):
 #      analyst alert   -> F2   (missing a mule is worse than an extra review)
 #      student warning -> F0.5 (scaring an innocent student is worse; the analyst level still sees it)
-data = pd.read_pickle(f'{SRC}/features.pkl')
+# Validation and test days as saved by notebook 02 (feat_val.pkl, feat_test.pkl)
+val = pd.read_pickle(f'{SRC}/feat_val.pkl')
+test = pd.read_pickle(f'{SRC}/feat_test.pkl')
 booster = xgb.Booster()
 booster.load_model(f'{SRC}/models/mule_xgb.json')
-val = data[data['split'] == 'val']
-test = data[data['split'] == 'test'].copy()
 p_val = booster.predict(xgb.DMatrix(val[FEATURES]))
 y_val = val['y'].values
 test['prob'] = booster.predict(xgb.DMatrix(test[FEATURES]))
@@ -140,6 +140,8 @@ except Exception as e:
 #    Replaying all 845k would take hours; this keeps the real mix of alerts at demo speed.
 normal = test[test['y'] == 0].sample(n=min(30_000, int((test['y'] == 0).sum())), random_state=7)
 replay = pd.concat([test[test['y'] == 1], normal]).sort_values('timestamp', kind='stable')
+# Amounts are in US dollars (converted in notebook 01). The service and front end read the column as amount_paid.
+replay['amount_paid'] = replay['amount_paid_usd']
 cols = ['timestamp', 'sender', 'receiver', 'amount_paid', 'payment_format_name', 'y'] + FEATURES
 replay[cols].to_csv(f'{OUT}/replay_sample.csv', index=False)
 print(f'\nReplay file: {len(replay):,} payments ({int(replay["y"].sum()):,} laundering) -> {OUT}/replay_sample.csv')
