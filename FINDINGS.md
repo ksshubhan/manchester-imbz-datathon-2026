@@ -227,10 +227,12 @@ Payments with the most points are flagged first, with payment size as a tie-brea
 ### Tune on validation, report test once
 **Why:** keeps the final number honest. See decision 4.
 
-### Top reasons per alert, fed to the LLM
-**What:** for each flagged payment, we take the 3 features that pushed the score up most (e.g. "sender paid 12 new accounts today", "account is 2 hours old") and give them to the LLM. It writes the student warning and the analyst explanation from them.
+### Top reasons per alert, turned into plain English
+**What:** for each flagged payment, we take the 3 features that pushed the score up most (e.g. "sender paid 12 new accounts today", "account is 2 hours old") and write the student warning and the analyst explanation from them using templates.
 
-**Why:** the LLM only explains what the model actually found, so it can't make things up. It also covers the **predictive + generative lab requirement**.
+**Why:** the explanation only states what the model actually found, so it can't make things up.
+
+**LLM (planned, not in the final build):** the plan was for an LLM (IBM Granite) to write these texts from the same reasons, covering the **predictive + generative lab**. The scoring service has the hook (`LLM_URL`), but no LLM was running by the 18:00 cut-off in SCOPE.md, so the final build uses the templates. An LLM would only reword the same reasons; it would not change any score, alert or result.
 
 ---
 
@@ -292,7 +294,7 @@ Payment format dominates overall, but the ACH-only check above shows the behavio
 **1. Isolation Forest is dropped from the score (weight 0).**
 *Why:* on its own it scored no better than random (1.1% recall), and every blend with XGBoost made validation worse (77.7% → 63.8% at weight 0.05 → 18.5% at 0.3). The weight was chosen on validation only, so this is a fair decision, not cherry-picking.
 *Why it failed, and why that's a useful finding:* mule payments don't look *statistically unusual*. They're often ordinary-sized ACH transfers. Anomaly detection flags the extremes (huge amounts, very busy accounts), which are mostly legitimate. **Mules hide in plain sight, so you need models that learn the specific laundering pattern.** That's a good line for the pitch.
-*Effect on the "multi-model" requirement:* our multi-model system becomes **predictive (XGBoost) + generative (LLM explanations)**, which is exactly the second lab's pattern. We report the Isolation Forest result honestly rather than hide it.
+*Effect on the "multi-model" requirement:* XGBoost is the only model in the final build. The plan was **predictive (XGBoost) + generative (LLM explanations)**, but no LLM was connected in time, so explanations come from templates built from the model's reasons. We report both the Isolation Forest result and this honestly rather than hide them.
 *Code removed (18 Oct):* the Isolation Forest training and blend were deleted from notebook 03 as dead code. The live service never loaded it (it only uses `mule_xgb.json`), so no numbers change; the result above stays as the record of the experiment.
 
 **2. Validation scored higher than test (77.9% vs 69.5% recall; before 18 Oct, 77.7% vs 59.3%).**
@@ -302,7 +304,7 @@ Payment format dominates overall, but the ACH-only check above shows the behavio
 *What it means:* most alerts at this level are false alarms, as in all real fraud systems.
 *Decision:* the **student warning must be gentle and informative** ("this payment matches patterns seen in money-mule scams, check before you send it on"), never accusatory. Analysts see every alert; students could get a warning only at a stricter threshold, where precision is higher. To size this in Phase 4: measure precision at the top 0.1%.
 
-**4. Explanation wording needs a tidy-up before the LLM uses it.**
+**4. Explanation wording needed a tidy-up (done in the scoring service).**
 Top reasons like "0 earlier payments between these two accounts" or "receiving account got 0 payments in the last hour" are correct but read awkwardly. Fix the wording in the scoring service (e.g. "these two accounts have never transacted before").
 
 ---
