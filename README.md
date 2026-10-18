@@ -10,6 +10,20 @@
 
 ---
 
+## Repository layout
+
+| Path | What's in it |
+|---|---|
+| `notebooks/` | 01 cleaning, 02 features, 03 model (run on LinuxONE), `tests/` evaluation |
+| `service/` | mule-service: Flask + XGBoost scoring API (Docker) |
+| `frontend/` | StudentShield web app: landing page, `/demo`, `/live` (Docker) |
+| `flowchart/` | Design flowchart (PNG, PDF) and the script that draws it |
+| `docs/StudentShield_Project_Report.pdf` | Full project report |
+| `docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf` | Pitch deck |
+| `docs/screenshots/` | Screenshots from the live system on LinuxONE |
+| `docs/FINDINGS.md` | Data findings and every modelling decision, with reasons |
+| `docs/SCOPE.md`, `docs/PITCH.md`, `docs/later.md` | Team plan, original pitch, ideas parked for later |
+
 ## Problem
 
 A money mule is the middle link in a laundering chain: dirty money lands in their account and they are told to forward it, usually within hours. Young people are recruited with "easy money" offers, often without realising it is a crime. Banks normally detect mules **after** the money has moved on, then freeze the account; the young person can lose their bank account and face a criminal record.
@@ -31,7 +45,7 @@ Students are the group being targeted, and the window between money arriving and
 | Laundering payments | 5,177 (0.10%, about 1 in 1,000) |
 | Currencies | 15, converted to US dollars with IBM's fixed rates |
 
-Cleaning choices (full reasoning in [FINDINGS.md](FINDINGS.md)):
+Cleaning choices (full reasoning in [docs/FINDINGS.md](docs/FINDINGS.md)):
 - Only 1–10 September used: from 11 Sep the generator stops producing normal payments, which would inflate any score.
 - Self-transfers dropped (11.6% of rows, only 11 laundering).
 - **Split by date, never randomly:** 1 Sep warm-up, 2–6 Sep train, 7–8 Sep validation, **9–10 Sep test** (~845k payments, 954 laundering, never seen in training or tuning).
