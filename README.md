@@ -18,11 +18,10 @@
 | `backend/` | mule-service: the Flask + XGBoost scoring API (Docker) |
 | `frontend/` | StudentShield web app: landing page, `/demo`, `/live` (Docker) |
 | `docs/StudentShield_Project_Report.pdf` | Full project report |
-| `docs/figures/` | Design flowchart, architecture diagram, feature-importance chart |
 | `docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf` | Pitch deck |
+| `docs/figures/` | Design flowchart, architecture diagram, feature-importance chart |
 | `docs/screenshots/` | Screenshots from the live system on LinuxONE |
-| `docs/notes/FINDINGS.md` | Data findings and every modelling decision, with reasons |
-| `docs/notes/` (SCOPE, PITCH, later) | Team plan, original pitch, ideas parked for later |
+| `docs/notes/` | Working notes: FINDINGS (every data and modelling decision, with reasons), SCOPE, PITCH, later |
 
 ## Problem
 
