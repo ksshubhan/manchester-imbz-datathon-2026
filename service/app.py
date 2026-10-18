@@ -15,7 +15,7 @@ Endpoints
   GET  /cases               real fan-in/fan-out accounts from the test days (for StudentShield)
   GET  /case/<account>      all payments into/out of one account;  GET /sample?n=200  background
 
-Run:  python app.py   (or in Docker, see service/README.md)
+Run:  python app.py   (or in Docker, see the main README.md)
 Data: DATA_DIR env var, default /data, must contain models/ and thresholds.json
 LLM:  optional. Set LLM_URL to an OpenAI-compatible chat endpoint (e.g. a local Granite
       server); otherwise explanations use templates built from the same reasons.
