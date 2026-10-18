@@ -18,7 +18,7 @@
 | `backend/` | mule-service: the Flask + XGBoost scoring API (Docker) |
 | `frontend/` | StudentShield web app: landing page, `/demo`, `/live` (Docker) |
 | `docs/StudentShield_Project_Report.pdf` | Full project report |
-| `docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf` | Pitch deck |
+| `docs/Manchester.Ai_IBM_Z_Datathon_2026_Pitch_deck.pdf` | Pitch deck |
 | `docs/figures/` | Design flowchart, architecture diagram, feature-importance chart |
 | `docs/screenshots/` | Screenshots from the live system on LinuxONE |
 | `docs/notes/` | Working notes: FINDINGS (every data and modelling decision, with reasons), SCOPE, PITCH, later |
@@ -126,7 +126,7 @@ Docker network "mule-net" on the LinuxONE VM
 
 ![Design flowchart](docs/figures/StudentShield_flowchart.png)
 
-Full write-up: [docs/StudentShield_Project_Report.pdf](docs/StudentShield_Project_Report.pdf). Pitch deck: [docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf](docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf).
+Full write-up: [docs/StudentShield_Project_Report.pdf](docs/StudentShield_Project_Report.pdf). Pitch deck: [docs/Manchester.Ai_IBM_Z_Datathon_2026_Pitch_deck.pdf](docs/Manchester.Ai_IBM_Z_Datathon_2026_Pitch_deck.pdf).
 
 ## Why IBM Z / LinuxONE
 
