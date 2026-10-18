@@ -1,6 +1,6 @@
 """Stream the test-day payments into the scoring service in time order, like live traffic.
 
-    python service/replay.py --url http://148.100.108.113:5000 --rate 50
+    python backend/replay.py --url http://148.100.108.113:5000 --rate 50
 
 --rate      payments per second (default 50). Lower it for a slower, more watchable demo.
 --limit     stop after N payments (default: all)

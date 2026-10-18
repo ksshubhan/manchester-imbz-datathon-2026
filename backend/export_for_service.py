@@ -3,7 +3,7 @@
 Copies the trained model somewhere the scoring service (and the VM host) can see it,
 builds a demo-sized replay file from the test days, and sets the alert thresholds.
 
-    python service/export_for_service.py
+    python backend/export_for_service.py
 
 Why: files under ~/shared inside the Jupyter container live only in that container.
 /home/jovyan/shared is the folder shared with the VM host (/home/linux1/shared), so a

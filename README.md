@@ -15,7 +15,7 @@
 | Path | What's in it |
 |---|---|
 | `notebooks/` | 01 cleaning, 02 features, 03 model (run on LinuxONE), `tests/` evaluation |
-| `service/` | mule-service: Flask + XGBoost scoring API (Docker) |
+| `backend/` | mule-service: the Flask + XGBoost scoring API (Docker) |
 | `frontend/` | StudentShield web app: landing page, `/demo`, `/live` (Docker) |
 | `flowchart/` | Design flowchart |
 | `docs/StudentShield_Project_Report.pdf` | Full project report |
@@ -95,7 +95,7 @@ Scoring takes **under a millisecond per payment** on LinuxONE.
 4. A new **flagged** payment re-asks "Does your answer still stand?". Asking stops after *Someone asked me to move it* or 3 answers, and the phone shows "A specialist is handling this".
 5. The analyst sees every alert and every answer. The phone never shows scores, reasons or the dataset's answer key.
 
-### Scoring API (`service/app.py`)
+### Scoring API (`backend/app.py`)
 
 | Endpoint | Returns |
 |---|---|
@@ -140,17 +140,17 @@ Full write-up: [docs/StudentShield_Project_Report.pdf](docs/StudentShield_Projec
 
 1. Deploy an Ubuntu instance on LinuxONE Community Cloud (event code SSF2026) and open the Jupyter environment.
 2. Download HI-Small from Kaggle into `~/shared`, then run `notebooks/01_cleaning`, `02_features`, `03_models` in order (Jupyter).
-3. Export the model and cut-offs (Jupyter terminal): `python service/export_for_service.py`. This copies the model to `~/shared/service_data`, chooses both cut-offs on the validation days, and writes the test-day replay file.
+3. Export the model and cut-offs (Jupyter terminal): `python backend/export_for_service.py`. This copies the model to `~/shared/service_data`, chooses both cut-offs on the validation days, and writes the test-day replay file.
 4. Build and run both containers (VM terminal, `linux1@...`). Both sit on the private network `mule-net`; only StudentShield is published, on port 5000:
    ```
    cd ~/shared/manchester-imbz-datathon-2026 && git pull
    docker network create mule-net 2>/dev/null || true
-   docker build -t mule-service service/ && docker rm -f mule-service
+   docker build -t mule-service backend/ && docker rm -f mule-service
    docker run -d --name mule-service --network mule-net --restart unless-stopped -v ~/shared/service_data:/data mule-service
    docker build -t studentshield frontend/ && docker rm -f studentshield
    docker run -d --name studentshield --network mule-net --restart unless-stopped -p 5000:5000 -e MODEL_URL=http://mule-service:5000 studentshield
    ```
-5. Open `http://<vm-ip>:5000`. The badge shows **s390x**. Optional load test from the VM: `python3 service/replay.py --url http://localhost:5000 --file ~/shared/service_data/replay_sample.csv --rate 0`.
+5. Open `http://<vm-ip>:5000`. The badge shows **s390x**. Optional load test from the VM: `python3 backend/replay.py --url http://localhost:5000 --file ~/shared/service_data/replay_sample.csv --rate 0`.
 
 
 ## Screenshots
