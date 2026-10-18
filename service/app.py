@@ -4,7 +4,7 @@ Scores each incoming payment in milliseconds, decides who gets warned, and expla
 
 Endpoints
   GET  /health              service is up + which model is loaded
-  POST /score               score one payment (JSON: 24 features + payment details)
+  POST /score               score one payment (JSON: 25 features + payment details)
   GET  /alerts?limit=50     most recent alerts, newest first (for the dashboard)
   GET  /explain/<id>        LLM-written student warning + analyst note for one alert
   GET  /stats               running totals for the dashboard header
@@ -93,6 +93,10 @@ def reason_text(feat, v, p):
                          if n(v) >= 1 else None),
         's_distinct_receivers': f'sender has paid {n(v)} different accounts' if n(v) >= 3 else None,
         's_new_receivers_24h': f'sender paid {n(v)} new accounts in the last 24 hours' if n(v) >= 2 else None,
+        # money out (incl. this payment) / money in, last 24h. Huge when the sender received nothing,
+        # so only shown when the sender really is passing on money it just received.
+        's_passthrough_24h': (f'sender is passing on {float(v):.0%} of the money it received in the last 24 hours'
+                              if 0.5 <= v <= 2 else None),
     }
     return texts.get(feat)
 
