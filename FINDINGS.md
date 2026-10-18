@@ -2,6 +2,8 @@
 
 What we learned from the data, **what we decided, and why**. Read this before building your part, so everyone understands the reasoning and can explain it to judges. Update it when a decision changes.
 
+> **Current numbers (18 Oct, 01:30):** the live service runs the model retrained on **US-dollar amounts with 25 features** (decision 8). Phase 3 and Phase 4b below show these numbers; the older 24-feature figures are kept underneath each table for the record.
+
 ---
 
 ## Phase 1: what the data looks like
@@ -128,19 +130,28 @@ ACH (bank-to-bank transfers) is 12% of payments but carries **87% of laundering*
 
 ---
 
-## Phase 2: features and rules baseline (`notebooks/02_features_and_baseline.ipynb`)
+### 8. All amounts are converted to US dollars (18 Oct)
+
+**What:** notebook 01 converts every amount to US dollars with one fixed rate per currency (`amount_paid_usd`, `amount_received_usd`). Amount features use the dollar values.
+
+**Why:** the dataset mixes 15 currencies and 63% of payments aren't in dollars. Without converting, "a payment of 10,000" means very different things in yen and in pounds, so the amount features compared unlike things. IBM's generator uses one fixed rate per currency (we checked this on all 5 million rows), so a fixed table is exact, not an approximation.
+
+**Effect:** together with one new feature (`s_passthrough_24h`, below), test recall at the 1% level rose from 59.3% to **69.5%**, and PR-AUC from 0.303 to **0.430**.
+
+---
+
+## Phase 2: features and rules baseline (`notebooks/01_cleaning.ipynb`, `notebooks/02_features.ipynb`)
 
 **Goal:** turn raw transactions into numbers a model can learn from, and set the score the model has to beat.
 
 **Steps**
-1. Load the cleaned data from notebook 01.
-2. Remove self-transfers and everything after 10 Sep (decisions 1–2). That leaves about 4.5M payments.
-3. Build **24 point-in-time features** for every incoming payment (decision 3).
-4. Split by date: warm-up, train, validation, test (decision 4).
-5. Score the **rules baseline** on the test days (decision 7).
-6. Save `features.pkl` for Phase 3.
+1. Notebook 01 loads the CSV, removes self-transfers and everything after 10 Sep (decisions 1–2) and converts amounts to US dollars (decision 8). That leaves 4,486,418 payments, 4,514 laundering.
+2. Notebook 02 builds **25 point-in-time features** for every incoming payment (decision 3).
+3. Split by date: warm-up, train, validation, test (decision 4).
+4. Score the **rules baseline** on the test days (decision 7).
+5. Save `feat_train.pkl`, `feat_val.pkl`, `feat_test.pkl` and `models/features.json` for Phase 3.
 
-### The 24 features
+### The 25 features
 
 All of them use **only transactions before the payment**.
 
@@ -172,7 +183,7 @@ All of them use **only transactions before the payment**.
 | `amt_vs_r_avg` | This payment compared with the account's usual incoming amount (e.g. 10x normal) |
 | `r_passthrough_24h` | Share of the last 24h's incoming money already sent back out (**pass-through**: mules forward money fast) |
 
-**About the sender, the possible recruiter (6)**
+**About the sender, the possible recruiter (7)**
 
 | Feature | Meaning |
 |---|---|
@@ -182,8 +193,9 @@ All of them use **only transactions before the payment**.
 | `s_in_cnt_24h` | Payments the sender **received** in the last 24h (money flowing *through* the sender too) |
 | `s_distinct_receivers` | How many different accounts the sender has ever paid |
 | `s_new_receivers_24h` | **New** accounts paid in the last 24h (**fan-out**: a recruiter spraying money to several mules) |
+| `s_passthrough_24h` | Money the sender has sent out in the last 24h (including this payment) compared with what it received (**added 18 Oct**: a sender passing on money it just received may itself be a mule) |
 
-**How it's computed fast:** a helper called `window_stats` sorts payments by (account, time) and uses binary search to count, for example, "payments this account received in the 24h before this one". It does this for all 4.5M payments in about a minute instead of hours. Payments in the same minute are excluded, so nothing leaks.
+**How it's computed fast:** a helper called `window_stats` sorts payments by (account, time) and uses binary search to count, for example, "payments this account received in the 24h before this one". It does this for all 4.5M payments in about a minute (59 s on LinuxONE) instead of hours. Payments in the same minute are excluded, so nothing leaks.
 
 ### The rules baseline
 
@@ -195,7 +207,7 @@ A simple checklist like a bank might hand-write. Each payment gets **one point p
 4. Receiver has been paid by **2+ new senders** in the last 24h (fan-in)
 5. Receiving account is **less than 24 hours old**
 
-Payments with the most points are flagged first, with payment size as a tie-breaker. We measure how much laundering lands in the **top 1%**. That's the number Phase 3 must beat. The model learns its own combination and thresholds from all 24 features instead of 5 fixed rules.
+Payments with the most points are flagged first, with payment size as a tie-breaker. We measure how much laundering lands in the **top 1%**. That's the number Phase 3 must beat. The model learns its own combination and thresholds from all 25 features instead of 5 fixed rules.
 
 ---
 
@@ -204,8 +216,8 @@ Payments with the most points are flagged first, with payment size as a tie-brea
 ### XGBoost as the main model
 **Why:** it's the go-to model for table-shaped data like ours. It's fast to train on a CPU (no GPU on the VM), copes with features on very different scales (counts vs amounts) without extra work, and tells us **which features drove each decision**, which we need for the explanations.
 
-### Isolation Forest as a second, "anomaly" model
-**Why:** XGBoost only learns patterns that appear in the labels. Isolation Forest needs no labels: it flags payments that are simply *unusual*, which can catch new laundering tricks the labels don't cover. Combining the two scores gives a more robust system, and it covers the guidebook's **multi-model lab requirement**.
+### Isolation Forest as a second, "anomaly" model (tried, then dropped: see Phase 3 results)
+**Why we tried it:** XGBoost only learns patterns that appear in the labels. Isolation Forest needs no labels: it flags payments that are simply *unusual*, which can catch new laundering tricks the labels don't cover. Combining the two scores gives a more robust system, and it covers the guidebook's **multi-model lab requirement**.
 
 ### Class weighting for the 1-in-1,000 problem
 **What:** we tell XGBoost to treat each laundering example as roughly 1,000 times more important (`scale_pos_weight`).
@@ -232,7 +244,7 @@ Payments with the most points are flagged first, with payment size as a tie-brea
 
 ## Phase 3 results (`notebooks/03_models.ipynb`)
 
-Trained on **IBM LinuxONE (s390x)**: XGBoost in **21.6 s**, Isolation Forest in 6 s. Train 2.09M payments (2,203 laundering), validation 945k (1,036), test 845k (954).
+Trained on **IBM LinuxONE (s390x)**: XGBoost in **22.4 s** (Isolation Forest, when it was tested, in 6 s). Train 2.09M payments (2,203 laundering), validation 945k (1,036), test 845k (954).
 
 ### Results log (test days 9–10 Sep, never seen during training or tuning)
 
@@ -240,12 +252,13 @@ Random guessing would score about 1% recall@1% and 0.001 PR-AUC (base rate 0.11%
 
 | Model | Recall @ 1% alerts | Precision @ 1% | PR-AUC |
 |---|---|---|---|
-| Rules baseline | 25.5% | 2.9% | 0.022 |
-| Isolation Forest only | 1.1% | 0.1% | 0.002 |
-| **XGBoost (final model)** | **59.3%** | **6.7%** | **0.303** |
-| XGBoost + Isolation Forest | same as XGBoost (best blend weight was 0) | | |
+| Rules baseline | 25.7% | 2.9% | 0.024 |
+| Isolation Forest only (tested earlier, dropped) | 1.1% | 0.1% | 0.002 |
+| **XGBoost (final model, 25 features, USD)** | **69.5%** | **7.9%** | **0.430** |
 
-**Headline:** flagging the riskiest 1% of payments, the model catches **59% of all laundering vs 25% for the rules**: **2.3x more**, with PR-AUC **13.6x higher**.
+*Before 18 Oct (24 features, amounts not converted): XGBoost 59.3% / 6.7% / 0.303, rules 25.5% / 2.9% / 0.022. XGBoost + Isolation Forest scored the same as XGBoost alone (best blend weight was 0).*
+
+**Headline:** flagging the riskiest 1% of payments, the model catches **70% of all laundering vs 26% for the rules**: **2.7x more**, with PR-AUC **18x higher**.
 
 ### "Isn't it just detecting ACH?" No.
 
@@ -253,21 +266,24 @@ Re-scored on **ACH payments only** (106,123 payments, 832 laundering):
 
 | Model (ACH only) | Recall @ 1% | Precision @ 1% | PR-AUC |
 |---|---|---|---|
-| Rules baseline | 2.3% | 1.8% | 0.026 |
-| **Our model** | **38.5%** | **30.2%** | **0.345** |
+| Rules baseline | 2.0% | 1.6% | 0.027 |
+| **Our model** | **53.6%** | **42.0%** | **0.492** |
 
-**Why this matters:** within ACH, "is it ACH?" tells you nothing, so the rules collapse to almost random. The model still catches 38.5% at a 30% hit rate, so it has learned **real mule behaviour** (first-time pairs, sender fan-out, account activity), not just payment type.
+*Before 18 Oct: rules 2.3% / 1.8% / 0.026, model 38.5% / 30.2% / 0.345.*
+
+**Why this matters:** within ACH, "is it ACH?" tells you nothing, so the rules collapse to almost random. The model still catches 53.6% at a 42% hit rate, so it has learned **real mule behaviour** (first-time pairs, sender fan-out, account activity), not just payment type.
 
 ### What the model relies on (feature importance)
 
 | Feature | Share | Meaning |
 |---|---|---|
-| `payment_format` | 58.7% | ACH carries most laundering |
-| `new_pair` | 9.3% | First ever payment between these two accounts |
-| `s_distinct_receivers` | 6.7% | How many accounts the sender pays (fan-out) |
-| `pair_prior_cnt` | 5.9% | History between the two accounts |
-| `s_out_cnt_all` / `s_out_cnt_24h` | 6.8% | Sender activity |
-| `r_in_cnt_1h`, `r_distinct_senders`, `r_passthrough_24h` | ~1.2% each | Receiver behaviour |
+| `payment_format` | 59.1% | ACH carries most laundering |
+| `s_distinct_receivers` | 8.7% | How many accounts the sender pays (fan-out) |
+| `pair_prior_cnt` | 6.4% | History between the two accounts |
+| `s_out_cnt_24h` / `s_out_cnt_all` | 7.0% | Sender activity |
+| `new_pair` | 4.2% | First ever payment between these two accounts |
+| `r_in_cnt_1h`, `r_passthrough_24h`, `r_distinct_senders` | ~1.1–1.4% each | Receiver behaviour |
+| `s_passthrough_24h` (new) | 0.8% | Sender passing on money it just received |
 
 Payment format dominates overall, but the ACH-only check above shows the behavioural features do real work.
 
@@ -279,10 +295,10 @@ Payment format dominates overall, but the ACH-only check above shows the behavio
 *Effect on the "multi-model" requirement:* our multi-model system becomes **predictive (XGBoost) + generative (LLM explanations)**, which is exactly the second lab's pattern. We report the Isolation Forest result honestly rather than hide it.
 *Code removed (18 Oct):* the Isolation Forest training and blend were deleted from notebook 03 as dead code. The live service never loaded it (it only uses `mule_xgb.json`), so no numbers change; the result above stays as the record of the experiment.
 
-**2. Validation scored higher than test (77.7% vs 59.3% recall).**
-*Why it happens:* patterns drift over time, so a model is always a bit worse on later days. This is expected, and it's exactly why we keep a separate, untouched test set. **We quote the test number (59.3%), never the validation number.**
+**2. Validation scored higher than test (77.9% vs 69.5% recall; before 18 Oct, 77.7% vs 59.3%).**
+*Why it happens:* patterns drift over time, so a model is always a bit worse on later days. This is expected, and it's exactly why we keep a separate, untouched test set. **We quote the test number (69.5%), never the validation number.** The gap shrank after the dollar conversion, which suggests the model now generalises better to later days.
 
-**3. Alert precision is ~1 in 15 at the 1% level, which shapes the product.**
+**3. Alert precision is ~1 in 13 at the 1% level (was ~1 in 15), which shapes the product.**
 *What it means:* most alerts at this level are false alarms, as in all real fraud systems.
 *Decision:* the **student warning must be gentle and informative** ("this payment matches patterns seen in money-mule scams, check before you send it on"), never accusatory. Analysts see every alert; students could get a warning only at a stricter threshold, where precision is higher. To size this in Phase 4: measure precision at the top 0.1%.
 
@@ -319,22 +335,27 @@ Thresholds were **set on validation days** (top 1% and top 0.1% of validation sc
 - **Student warning: F0.5** (precision-weighted). Scaring an innocent student is worse than missing a case, because the analyst level still sees it.
 - 2 and 0.5 are the standard values. A cost-based beta would need real bank cost figures we don't have, so a precise-looking beta would just be a guess.
 
-**Results on the test days (9-10 Sep, about 845k payments, 0.1% laundering):**
+**Results on the test days (9-10 Sep, about 845k payments, 0.1% laundering), current model (25 features, USD):**
 
-| Level | Test payments flagged | Alerts per day | Laundering caught | Alerts that are real |
-|---|---|---|---|---|
-| **Analyst alert (F2)** | 0.31% | ~1,300 | **45.9%** | **16.8% (1 in 6)** |
-| **Student warning (F0.5)** | 0.03% | ~125 | **18.6%** | **70.8% (7 in 10)** |
-| old: top 1% of validation | 2.57% | ~10,800 | 75.2% | 3.3% (1 in 30) |
-| old: top 0.1% of validation | 0.13% | ~570 | 34.3% | 28.9% |
+| Level | Test payments flagged | Alerts per day | False alarms per day | Laundering caught | Alerts that are real |
+|---|---|---|---|---|---|
+| **Analyst alert (F2)** | 0.10% | ~436 | ~220 | **45.2%** | **49.5% (1 in 2)** |
+| **Student warning (F0.5)** | 0.06% | ~259 | ~78 | **37.8%** | **69.7% (7 in 10)** |
+| for comparison: top 1% of validation | 2.48% | ~10,500 | | 74.7% | 3.4% (1 in 30) |
+| for comparison: top 0.1% of validation | 0.09% | ~360 | | 43.1% | 56.8% |
+
+*Before 18 Oct (24-feature model): analyst 0.31% flagged, ~1,300 alerts a day (~1,090 false), 45.9% caught, 16.8% real; student 0.03%, ~125 a day (~37 false), 18.6% caught, 70.8% real.*
 
 **What this means:**
-- Both levels got **stricter**. We catch less laundering in total (analyst recall 75% → 46%), but alerts are **5 times more likely to be real** and the analyst queue is **8 times smaller**.
+- F-beta made both levels **stricter** than the old top-1% level: we catch less laundering in total (75% → 45% at analyst level), but alerts are far more likely to be real and the queue is about 24 times smaller.
+- With the dollar conversion, analyst alerts became **3 times more precise** (1 in 6 → 1 in 2) with the same recall, and false alarms fell from ~1,090 to ~220 a day.
+- Student warnings now catch **twice as much laundering** (18.6% → 37.8%) at the same precision. The cost: ~78 wrong warnings a day instead of ~37.
 - For students this fits the pitch: when we interrupt a student, **7 times out of 10 it really is mule activity**.
-- The new cut-offs are **more stable** between validation and test (0.23% → 0.31% flagged) than the old top-1% level (1% → 2.57%).
+- The cut-offs are **stable** between validation and test (analyst 0.13% → 0.10% flagged, student 0.07% → 0.06%), unlike the old top-1% level (1% → 2.48%).
 - The trade-off is real and the bank controls it. The chart `~/shared/threshold_sweep.png` shows recall and precision for every possible cut-off, so a bank with more analysts can choose a looser one.
 
 **Pitch lines:**
 - *"7 in 10 of our student warnings are real mule payments, and each one arrives before the money moves on."*
+- *"Half of our analyst alerts are real, against about 1 in 30 if a bank simply reviewed its riskiest 1%."*
 - *"Each cut-off is chosen by a standard method, weighted for who bears the cost of a mistake."*
 - If asked why we don't catch more: *"We can. Here is the whole trade-off curve. The bank chooses the point that matches its capacity."*
