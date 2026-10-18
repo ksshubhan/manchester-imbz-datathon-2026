@@ -120,6 +120,7 @@ All taken on 18 Oct 2026 from the live system on LinuxONE (files in [docs/screen
 | LinuxONE Community Cloud: the HulmeAI VM, active, 148.100.108.113 | ![](docs/screenshots/01_linuxone_dashboard.png) |
 | `/health` from the live service: `machine: s390x`, 25 features, both cut-offs | ![](docs/screenshots/02_health.png) |
 | Notebook 03: XGBoost trained on s390x in 19.0 s, validation recall@1% 0.779 | ![](docs/screenshots/03_notebook03_training.png) |
+| VM terminal: `uname -m` = s390x; `docker ps` shows studentshield (public port 5000), mule-service (no public port) and the Jupyter notebook container | ![](docs/screenshots/04_vm_docker_ps.png) |
 | `/demo`: real test-day case reaches the student level; phone asks the question | ![](docs/screenshots/05_demo_student_warning.png) |
 | `/demo`: new flagged payment, student re-asked | ![](docs/screenshots/06_demo_reask.png) |
 | `/demo`: student warned 19 h 17 min before the money moved out; outbound transfer held | ![](docs/screenshots/07_demo_held_19h.png) |
