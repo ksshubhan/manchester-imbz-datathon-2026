@@ -18,11 +18,11 @@
 | `backend/` | mule-service: the Flask + XGBoost scoring API (Docker) |
 | `frontend/` | StudentShield web app: landing page, `/demo`, `/live` (Docker) |
 | `docs/StudentShield_Project_Report.pdf` | Full project report |
-| `docs/StudentShield_flowchart.png` | Design flowchart |
+| `docs/figures/` | Design flowchart, architecture diagram, feature-importance chart |
 | `docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf` | Pitch deck |
 | `docs/screenshots/` | Screenshots from the live system on LinuxONE |
-| `docs/FINDINGS.md` | Data findings and every modelling decision, with reasons |
-| `docs/SCOPE.md`, `docs/PITCH.md`, `docs/later.md` | Team plan, original pitch, ideas parked for later |
+| `docs/notes/FINDINGS.md` | Data findings and every modelling decision, with reasons |
+| `docs/notes/` (SCOPE, PITCH, later) | Team plan, original pitch, ideas parked for later |
 
 ## Problem
 
@@ -45,7 +45,7 @@ Students are the group being targeted, and the window between money arriving and
 | Laundering payments | 5,177 (0.10%, about 1 in 1,000) |
 | Currencies | 15, converted to US dollars with IBM's fixed rates |
 
-Cleaning choices (full reasoning in [docs/FINDINGS.md](docs/FINDINGS.md)):
+Cleaning choices (full reasoning in [docs/notes/FINDINGS.md](docs/notes/FINDINGS.md)):
 - Only 1–10 September used: from 11 Sep the generator stops producing normal payments, which would inflate any score.
 - Self-transfers dropped (11.6% of rows, only 11 laundering).
 - **Split by date, never randomly:** 1 Sep warm-up, 2–6 Sep train, 7–8 Sep validation, **9–10 Sep test** (~845k payments, 954 laundering, never seen in training or tuning).
@@ -125,7 +125,7 @@ Docker network "mule-net" on the LinuxONE VM
   └───────────────────────────────┘
 ```
 
-![Design flowchart](docs/StudentShield_flowchart.png)
+![Design flowchart](docs/figures/StudentShield_flowchart.png)
 
 Full write-up: [docs/StudentShield_Project_Report.pdf](docs/StudentShield_Project_Report.pdf). Pitch deck: [docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf](docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf).
 
