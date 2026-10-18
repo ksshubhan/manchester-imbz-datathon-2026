@@ -196,7 +196,7 @@ All taken on 18 Oct 2026 from the live system on LinuxONE (files in [docs/screen
 
 ## Team
 
-- Thinojen Balakumaresan (lead) — platform / LinuxONE
-- Sshubhan Kammari — data & model
+- Thinojen Balakumaresan
 - Julian Newson
+- Sshubhan Kammari
 - Arda Yencer
