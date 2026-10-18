@@ -23,21 +23,17 @@ We build a real-time system on LinuxONE that spots the mule pattern the moment s
 ## ⚠️ "Won't loads of teams do fraud?"
 Probably, but most will build a generic bank-side fraud detector in a notebook. Here's how we make ours impossible to copy:
 
-**1️⃣ Our own data**
-We can run our own quick surveys online to get real evidence from students, so we're not just quoting the same stats as everyone else.
-
-**2️⃣ A specific mechanism**
+**1️⃣ A specific mechanism**
 Not just "detect fraud". We decide exactly which signal we catch (e.g. money arriving and leaving within hours, many unknown senders) and exactly what the student sees at that moment.
 
-**3️⃣ A live demo, not a notebook**
+**2️⃣ A live demo, not a notebook**
 Payments stream in on LinuxONE, an account turns red, the student gets the warning, the analyst gets the explanation. Most teams won't have anything running live.
 
-**4️⃣ Our story**
+**3️⃣ Our story**
 "We're students, we're the ones being recruited, here's what we found." No other team can say that the same way.
 
 ## ✅ Next steps
 - Agree on this in the next 10 mins
-- 1 person: surveys
 - 1-2 people: get LinuxONE + the labs running, then load the IBM dataset
 - 1 person: demo front end (student warning + analyst view)
 - 1 person: own the pitch deck PDF + video script from this afternoon

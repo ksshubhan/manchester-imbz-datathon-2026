@@ -20,7 +20,6 @@
 ## Should-have (only after MVP works)
 - Checkpoint 2: pause the outbound transfer with a confirmation step (can be simulated)
 - Graph view of the sender's mule ring
-- Survey results slide
 
 ## Won't do
 See `later.md`.
@@ -46,7 +45,7 @@ See `later.md`.
 - **Data & model:** features, training, evaluation
 - **Platform:** VM, Docker, scoring service, LLM, screenshots
 - **Front end:** student view + analyst dashboard
-- **Pitch:** surveys, deck, video script, open-source list, README
+- **Pitch:** deck, video script, open-source list, README
 
 ## Risks
 - VM memory: start with a sample of HI-Small, scale up only if comfortable
