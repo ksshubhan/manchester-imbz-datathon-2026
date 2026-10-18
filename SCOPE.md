@@ -10,8 +10,8 @@
    - Payment: amount vs the account's normal, new sender?, payment type
    - Receiving account: account age, number of unrelated senders recently
    - Sender: fan-out (how many new accounts they've paid recently)
-3. **Models:** rules baseline + XGBoost. An Isolation Forest anomaly score was tested and dropped (no better than random); multi-model = predictive (XGBoost) + generative (LLM explanations).
-4. **Generative AI:** LLM turns the top reasons into (a) a student warning and (b) an analyst explanation (covers the predictive + generative lab).
+3. **Models:** rules baseline + XGBoost. An Isolation Forest anomaly score was tested and dropped (no better than random); The final build uses XGBoost only; explanations come from templates (see 4).
+4. **Explanations:** templates turn the model's top reasons into (a) a student warning and (b) an analyst explanation. Planned: an LLM (IBM Granite) writing these from the same reasons. The service has the hook (`LLM_URL`), but Granite wasn't running by the 18:00 cut-off below, so templates are the final version.
 5. **Live demo:** replay script streams transactions in time order -> scoring service in Docker on LinuxONE -> web page with:
    - Student phone view (warning)
    - Analyst dashboard (accounts turning red + explanation)
