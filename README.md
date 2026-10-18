@@ -84,7 +84,7 @@ Docker network "mule-net" on the LinuxONE VM
 
 ![Design flowchart](flowchart/StudentShield_flowchart.png)
 
-Full write-up: [docs/StudentShield_Project_Report.docx](docs/StudentShield_Project_Report.docx) ([PDF](docs/StudentShield_Project_Report.pdf)).
+Full write-up: [docs/StudentShield_Project_Report.pdf](docs/StudentShield_Project_Report.pdf). Pitch deck: [docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf](docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf).
 
 ## Why IBM Z / LinuxONE
 
