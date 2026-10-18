@@ -82,7 +82,9 @@ Docker network "mule-net" on the LinuxONE VM
   └───────────────────────────────┘
 ```
 
-Full write-up: [docs/StudentShield_Project_Report.md](docs/StudentShield_Project_Report.md).
+![Design flowchart](docs/StudentShield_flowchart.png)
+
+Full write-up: [docs/StudentShield_Project_Report.docx](docs/StudentShield_Project_Report.docx) ([PDF](docs/StudentShield_Project_Report.pdf)).
 
 ## Why IBM Z / LinuxONE
 
