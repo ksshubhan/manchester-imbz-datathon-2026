@@ -15,7 +15,7 @@ We build a real-time system on LinuxONE that spots the mule pattern the moment s
 ✅ **Ours:** we catch it in the window between the money arriving and the student sending it on, and warn the student FIRST. The student is protected, and the chain gets broken before the money disappears.
 
 ## 🏆 Why it's the best option
-- Real problem with hard numbers: around a fifth of suspected mule cases in the UK involve under-21s, 65% of mules are under 30, and UK payment fraud hit £1.28bn last year
+- Real problem with hard numbers: 23% of suspected mule cases on the Cifas database involved people aged 21 and under, 64% involved people aged up to 30 (Cifas & UK Finance, H1 2023), and UK payment fraud hit £1.28bn in 2025 (UK Finance)
 - It's literally about us. We're the age group being targeted, which makes the pitch personal and believable
 - We can use IBM's own anti-money-laundering dataset. Judges are IBM people, so "IBM's data on IBM's platform" is an easy win
 - It hits Theme 1 (real-time AI) and lines up with both mandatory labs (multi-model + predictive & generative AI). Final build: XGBoost with template explanations; the planned LLM (Granite) layer wasn't connected in time
@@ -46,6 +46,6 @@ Thoughts? If we're agreed let's split up and go 🚀
 
 ---
 **Sources for stats:**
-- [Fifth of suspected money mule cases involve under-21s](https://news.stv.tv/world/fifth-of-suspected-money-mule-cases-involve-under-21s)
-- [65% of UK money mules are under 30](https://financialit.net/news/cybersecurity/new-research-reveals-65-uk-money-mules-are-under-30)
+- [UK Finance & Cifas: 23% aged 21 and under, 64% aged up to 30 (H1 2023)](https://www.ukfinance.org.uk/news-and-insight/press-release/uk-finance-and-cifas-launch-lessons), also reported by [STV News, 12 Jul 2023](https://news.stv.tv/world/fifth-of-suspected-money-mule-cases-involve-under-21s)
+- Not used: "65% of mules under 30" is a different source (BioCatch, Jan 2025); we quote the Cifas figures everywhere.
 - [UK payment fraud losses topped £1.28bn in 2025 (UK Finance)](https://www.fintechfutures.com/financial-crime-fraud-prevention/uk-payment-fraud-losses-top-1-28bn-in-2025-new-uk-finance-report-finds)
