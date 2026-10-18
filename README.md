@@ -17,8 +17,8 @@
 | `notebooks/` | 01 cleaning, 02 features, 03 model (run on LinuxONE), `tests/` evaluation |
 | `backend/` | mule-service: the Flask + XGBoost scoring API (Docker) |
 | `frontend/` | StudentShield web app: landing page, `/demo`, `/live` (Docker) |
-| `flowchart/` | Design flowchart |
 | `docs/StudentShield_Project_Report.pdf` | Full project report |
+| `docs/StudentShield_flowchart.png` | Design flowchart |
 | `docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf` | Pitch deck |
 | `docs/screenshots/` | Screenshots from the live system on LinuxONE |
 | `docs/FINDINGS.md` | Data findings and every modelling decision, with reasons |
@@ -125,7 +125,7 @@ Docker network "mule-net" on the LinuxONE VM
   └───────────────────────────────┘
 ```
 
-![Design flowchart](flowchart/StudentShield_flowchart.png)
+![Design flowchart](docs/StudentShield_flowchart.png)
 
 Full write-up: [docs/StudentShield_Project_Report.pdf](docs/StudentShield_Project_Report.pdf). Pitch deck: [docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf](docs/Manchester.Ai_IBM_Z_Datathon_2026_Project.pdf).
 
