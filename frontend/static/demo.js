@@ -25,7 +25,7 @@ const ANSWER_COPY = {
 };   // "idle" | "notif" | "warn" | "done"
 let latest = null;
 
-// Amounts are in each payment's own currency (the IBM dataset mixes currencies), so no £ sign.
+// Amounts are in US dollars (converted from each payment's currency in notebook 01).
 const gbp = (n) => Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
