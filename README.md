@@ -78,6 +78,35 @@ Alert levels, each cut-off chosen with F-beta on validation and measured once on
 
 Scoring takes **under a millisecond per payment** on LinuxONE.
 
+## The web app
+
+| Page | What it shows |
+|---|---|
+| `/` | Landing page: the problem, how it works, the usual approach vs ours |
+| `/demo` | One real mule case from the unseen test days, step by step: payment stream, the student's phone, the bank analyst's console. Controls: **Play a real case**, **Reset**, **Full test-day replay** |
+| `/live` | Full replay of the test days at 5–100 payments a second, with live alerts, catch rate and latency |
+
+**Real vs illustrative.** Every payment, score, alert level and reason on `/demo` and `/live` is real model output on the test days (9–10 Sep). Only the "Student (persona)" label is illustrative, because the dataset has no ages. `/demo` plays the strongest real fan-in-then-send-on account, picked automatically by the service. Amounts have no £ sign because the dataset mixes currencies.
+
+**Phone rules** (both pages):
+1. Below the analyst cut-off, or at analyst level only: the phone stays normal. About half of analyst-level alerts are innocent, too many to contact students.
+2. At student level: the phone asks "Has someone asked you to move this money?" with three answers: *Pause, I need help* / *Someone asked me to move it* / *This is legitimate*.
+3. Payments out are paused only once the account reaches student level. Answers record what the student said; they don't trigger the hold.
+4. A new **flagged** payment re-asks "Does your answer still stand?". Asking stops after *Someone asked me to move it* or 3 answers, and the phone shows "A specialist is handling this".
+5. The analyst sees every alert and every answer. The phone never shows scores, reasons or the dataset's answer key.
+
+### Scoring API (`service/app.py`)
+
+| Endpoint | Returns |
+|---|---|
+| `GET /health` | Status, machine type (s390x), number of features, cut-offs |
+| `POST /score` | Score one payment: score, level, top reasons, messages, latency |
+| `GET /alerts?limit=50` | Latest alerts, newest first |
+| `GET /explain/<id>` | Student warning and analyst note for one alert |
+| `GET /stats` | Payments scored, alerts, student warnings, catch rate, average latency |
+| `GET /cases`, `GET /case/<account>` | Real fan-in-then-send-on accounts from the test days, and their payments |
+| `POST /demo/start`, `/demo/stop` | Replay the test days inside the service |
+
 ## Architecture
 
 ```
@@ -111,8 +140,8 @@ Full write-up: [docs/StudentShield_Project_Report.pdf](docs/StudentShield_Projec
 
 1. Deploy an Ubuntu instance on LinuxONE Community Cloud (event code SSF2026) and open the Jupyter environment.
 2. Download HI-Small from Kaggle into `~/shared`, then run `notebooks/01_cleaning`, `02_features`, `03_models` in order (Jupyter).
-3. Export the model and cut-offs: `python service/export_for_service.py` (Jupyter terminal).
-4. Build and run both containers (VM terminal):
+3. Export the model and cut-offs (Jupyter terminal): `python service/export_for_service.py`. This copies the model to `~/shared/service_data`, chooses both cut-offs on the validation days, and writes the test-day replay file.
+4. Build and run both containers (VM terminal, `linux1@...`). Both sit on the private network `mule-net`; only StudentShield is published, on port 5000:
    ```
    cd ~/shared/manchester-imbz-datathon-2026 && git pull
    docker network create mule-net 2>/dev/null || true
@@ -121,9 +150,8 @@ Full write-up: [docs/StudentShield_Project_Report.pdf](docs/StudentShield_Projec
    docker build -t studentshield frontend/ && docker rm -f studentshield
    docker run -d --name studentshield --network mule-net --restart unless-stopped -p 5000:5000 -e MODEL_URL=http://mule-service:5000 studentshield
    ```
-5. Open `http://<vm-ip>:5000`.
+5. Open `http://<vm-ip>:5000`. The badge shows **s390x**. Optional load test from the VM: `python3 service/replay.py --url http://localhost:5000 --file ~/shared/service_data/replay_sample.csv --rate 0`.
 
-Details: [service/README.md](service/README.md), [frontend/README.md](frontend/README.md).
 
 ## Screenshots
 
@@ -158,6 +186,7 @@ All taken on 18 Oct 2026 from the live system on LinuxONE (files in [docs/screen
 - [Flask](https://flask.palletsprojects.com/) — scoring service and front end
 - [Jupyter / JupyterLab](https://jupyter.org/) — notebooks on LinuxONE
 - [Docker](https://www.docker.com/) — containers
+- [IBM Plex](https://github.com/IBM/plex) — typeface for the web app
 
 ## Sources
 
