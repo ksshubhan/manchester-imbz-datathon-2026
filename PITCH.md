@@ -18,7 +18,7 @@ We build a real-time system on LinuxONE that spots the mule pattern the moment s
 - Real problem with hard numbers: around a fifth of suspected mule cases in the UK involve under-21s, 65% of mules are under 30, and UK payment fraud hit £1.28bn last year
 - It's literally about us. We're the age group being targeted, which makes the pitch personal and believable
 - We can use IBM's own anti-money-laundering dataset. Judges are IBM people, so "IBM's data on IBM's platform" is an easy win
-- It hits Theme 1 (real-time AI) and lines up with both mandatory labs (multi-model + predictive & generative AI), so the lab work feeds straight into our build
+- It hits Theme 1 (real-time AI) and lines up with both mandatory labs (multi-model + predictive & generative AI). Final build: XGBoost with template explanations; the planned LLM (Granite) layer wasn't connected in time
 
 ## ⚠️ "Won't loads of teams do fraud?"
 Probably, but most will build a generic bank-side fraud detector in a notebook. Here's how we make ours impossible to copy:
