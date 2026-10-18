@@ -246,7 +246,7 @@ Payments with the most points are flagged first, with payment size as a tie-brea
 
 ## Phase 3 results (`notebooks/03_models.ipynb`)
 
-Trained on **IBM LinuxONE (s390x)**: XGBoost in **22.4 s** (Isolation Forest, when it was tested, in 6 s). Train 2.09M payments (2,203 laundering), validation 945k (1,036), test 845k (954).
+Trained on **IBM LinuxONE (s390x)**: XGBoost in **19.0 s** (final model; 22.4 s for the first version) (Isolation Forest, when it was tested, in 6 s). Train 2.09M payments (2,203 laundering), validation 945k (1,036), test 845k (954).
 
 ### Results log (test days 9–10 Sep, never seen during training or tuning)
 
@@ -277,15 +277,18 @@ Re-scored on **ACH payments only** (106,123 payments, 832 laundering):
 
 ### What the model relies on (feature importance)
 
+Final model (25 features, USD), share of gain from `notebooks/03_models.ipynb`:
+
 | Feature | Share | Meaning |
 |---|---|---|
-| `payment_format` | 59.1% | ACH carries most laundering |
-| `s_distinct_receivers` | 8.7% | How many accounts the sender pays (fan-out) |
-| `pair_prior_cnt` | 6.4% | History between the two accounts |
-| `s_out_cnt_24h` / `s_out_cnt_all` | 7.0% | Sender activity |
-| `new_pair` | 4.2% | First ever payment between these two accounts |
-| `r_in_cnt_1h`, `r_passthrough_24h`, `r_distinct_senders` | ~1.1–1.4% each | Receiver behaviour |
-| `s_passthrough_24h` (new) | 0.8% | Sender passing on money it just received |
+| `payment_format` | 50.4% | ACH carries most laundering |
+| `new_pair` | 11.6% | First ever payment between these two accounts |
+| `s_distinct_receivers` | 8.6% | How many accounts the sender pays (fan-out) |
+| `pair_prior_cnt` | 6.2% | History between the two accounts |
+| `s_out_cnt_24h` / `s_out_cnt_all` | 8.1% | Sender activity |
+| `r_in_cnt_1h`, `log_amount`, `payment_currency`, `r_passthrough_24h`, `r_distinct_senders` | ~1.2–1.6% each | Receiver behaviour and payment |
+
+*First version (24 features): payment_format 58.7%.*
 
 Payment format dominates overall, but the ACH-only check above shows the behavioural features do real work.
 
