@@ -6,7 +6,7 @@
 **Event code:** SSF2026
 **Theme:** 1 — Real-Time AI for Critical Decisions (fraud detection)
 **Live prototype (LinuxONE):** http://148.100.108.113:5000
-**Demo video:** _link_
+**Demo video:** https://youtu.be/hoqLOgtl5Gg
 
 ---
 
