@@ -5,7 +5,7 @@
 **Team:** Manchester.Ai (University of Manchester hub)
 **Event code:** SSF2026
 **Theme:** 1 — Real-Time AI for Critical Decisions (fraud detection)
-**Live prototype (LinuxONE):** http://148.100.108.113:5000
+**Live prototype (LinuxONE):** http://148.100.108.113:5000 (event VM, may be offline; the demo video and [screenshots](#screenshots) show the running system)
 **Demo video:** https://youtu.be/hoqLOgtl5Gg
 
 ---
@@ -198,5 +198,5 @@ All taken on 18 Oct 2026 from the live system on LinuxONE (files in [docs/screen
 
 - Thinojen Balakumaresan
 - Julian Newson
-- Sshubhan Kammari
+- Sshubhan Kammari: data and model (`notebooks/01–03`) and the scoring service (`backend/`)
 - Arda Yencer
