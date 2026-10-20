@@ -277,16 +277,18 @@ Re-scored on **ACH payments only** (106,123 payments, 832 laundering):
 
 ### What the model relies on (feature importance)
 
-Final model (25 features, USD), share of gain from `notebooks/03_models.ipynb`:
+Final model (25 features, USD), share of gain from `notebooks/03_models.ipynb` (re-run on LinuxONE 20 Oct; test results identical):
 
 | Feature | Share | Meaning |
 |---|---|---|
-| `payment_format` | 50.4% | ACH carries most laundering |
-| `new_pair` | 11.6% | First ever payment between these two accounts |
-| `s_distinct_receivers` | 8.6% | How many accounts the sender pays (fan-out) |
-| `pair_prior_cnt` | 6.2% | History between the two accounts |
-| `s_out_cnt_24h` / `s_out_cnt_all` | 8.1% | Sender activity |
-| `r_in_cnt_1h`, `log_amount`, `payment_currency`, `r_passthrough_24h`, `r_distinct_senders` | ~1.2–1.6% each | Receiver behaviour and payment |
+| `payment_format` | 59.1% | ACH carries most laundering |
+| `s_distinct_receivers` | 8.7% | How many accounts the sender pays (fan-out) |
+| `s_out_cnt_24h` / `s_out_cnt_all` | 7.0% | Sender activity |
+| `pair_prior_cnt` | 6.4% | History between the two accounts |
+| `new_pair` | 4.2% | First ever payment between these two accounts |
+| `payment_currency`, `r_in_cnt_1h`, `r_passthrough_24h`, `r_distinct_senders`, `log_amount` | ~1.1–1.5% each | Receiver behaviour and payment |
+
+*The 18 Oct notebook output showed payment_format at 50.4% and new_pair at 11.6% with the same code and test results. The re-run measures importance on the trees kept at the early-stopping point, which is the model the service uses, so the figures above replace it.*
 
 *First version (24 features): payment_format 58.7%.*
 
