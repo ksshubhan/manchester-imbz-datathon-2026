@@ -176,6 +176,23 @@ All taken on 18 Oct 2026 from the live system on LinuxONE (files in [docs/screen
 - **Human in the loop:** an analyst reviews every alert; the model never freezes an account on its own.
 - The "Student (persona)" in the demo is illustrative; the payments are real rows of the synthetic dataset.
 
+## What we learned
+
+- **Mules hide in plain sight.** An unsupervised Isolation Forest was no better than random (1.1% recall at 1% of payments flagged), and every blend with XGBoost made validation worse. Mule payments are ordinary-sized transfers, not statistical outliers, so detecting them needs a model that learns the laundering pattern.
+- **Check the data before trusting a score.** From 11 September the generator stops producing normal payments, so testing on those days would have made any model look excellent. We used 1–10 September only.
+- **Fixing the data beat tuning the model.** Converting 15 currencies to US dollars, plus one new feature, raised test recall from 59.3% to 69.5% and PR-AUC from 0.303 to 0.430.
+- **Performance drifts over time.** Validation recall was 77.9% and test recall was 69.5%, which is why we quote the untouched test days.
+- **Thresholds are a product decision.** The analyst alert uses F2, because missing a mule costs more. The student warning uses F0.5, because frightening an innocent student costs more.
+
+## Future improvements
+
+- Split by account or laundering ring as well as by date, so no account appears in both training and test data.
+- Compute features live from a streaming store. Today they're computed in a batch and replayed.
+- Connect the planned LLM (IBM Granite) to word the warnings from the same top reasons.
+- Train on the larger HI-Medium and HI-Large datasets, and use `HI-Small_Patterns.txt` to name the laundering pattern in analyst explanations.
+- Give each viewer their own demo session, and feed the student's answers into the analyst's explanation.
+- Predict mule accounts at account opening, before any money arrives.
+
 ## Open-source libraries used
 
 - [XGBoost](https://github.com/dmlc/xgboost) — model, and per-alert SHAP reasons (`pred_contribs`)
